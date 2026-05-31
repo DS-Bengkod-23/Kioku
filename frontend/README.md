@@ -21,22 +21,40 @@ Next.js frontend untuk MeetMate.
 frontend/
 ├── app/
 │   ├── layout.tsx
-│   ├── page.tsx                  # redirect ke /meetings
-│   ├── (auth)/
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   ├── meetings/
-│   │   ├── page.tsx              # dashboard list meetings
-│   │   ├── new/page.tsx          # form create meeting
-│   │   └── [id]/
-│   │       ├── page.tsx          # detail meeting
-│   │       └── recording/page.tsx
-│   ├── check-in/
-│   │   └── [token]/page.tsx      # halaman publik check-in (no login)
-│   └── action-items/
-│       └── page.tsx              # semua action item milik user
+│   ├── page.tsx                  # halaman utama (redirect ke /meetings)
+│   ├── globals.css
+│   ├── favicon.ico
+│   ├── fonts/
+│   │   ├── GeistVF.woff
+│   │   └── GeistMonoVF.woff
+│   ├── (auth)/                   # route group auth (no layout utama)
+│   │   ├── login/
+│   │   │   └── page.tsx
+│   │   ├── register/
+│   │   │   └── page.tsx
+│   │   └── forgot-password/
+│   │       └── page.tsx
+│   ├── (main)/                   # route group dengan layout sidebar
+│   │   ├── layout.tsx            # layout utama (navbar)
+│   │   ├── meetings/
+│   │   │   ├── page.tsx          # dashboard list meetings
+│   │   │   ├── new/
+│   │   │   │   └── page.tsx      # form create meeting
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx      # detail meeting + notulen
+│   │   │       └── recording/
+│   │   │           └── page.tsx  # upload & proses rekaman
+│   │   ├── action-items/
+│   │   │   └── page.tsx          # semua action item milik user
+│   │   └── profile/
+│   │       └── page.tsx          # profil & pengaturan akun
+│   └── check-in/
+│       └── [token]/
+│           └── page.tsx          # halaman publik check-in (no login)
 ├── components/
 │   ├── ui/                       # shadcn components (auto-generated)
+│   │   ├── button.tsx
+│   │   └── dropdown-menu.tsx
 │   ├── meetings/
 │   │   ├── MeetingCard.tsx
 │   │   ├── MeetingForm.tsx
@@ -57,8 +75,9 @@ frontend/
 │   └── useProcessingStatus.ts   # polling status processing
 ├── types/
 │   └── index.ts                  # TypeScript types sesuai API Contract
-├── public/
 ├── package.json
+├── tailwind.config.ts
+├── tsconfig.json
 └── README.md
 ```
 
@@ -90,8 +109,8 @@ Buka http://localhost:3000
 | Register | /register | No |
 | Dashboard meetings | /meetings | Yes |
 | Create meeting | /meetings/new | Yes |
-| Detail meeting | /meetings/:id | Yes |
-| Check-in peserta | /check-in/:token | No (public) |
+| Detail meeting | /meetings/[id] | Yes |
+| Check-in peserta | /check-in/[token] | No (public) |
 | Action items saya | /action-items | Yes |
 
 ---

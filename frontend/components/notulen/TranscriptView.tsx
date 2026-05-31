@@ -89,7 +89,7 @@ export default function TranscriptView({ lines }: TranscriptViewProps) {
           ))
         ) : (
           <div className="text-center py-8 text-xs italic text-slate-500">
-            Kata kunci "{searchQuery}" tidak ditemukan.
+            Kata kunci '{searchQuery}' tidak ditemukan.
           </div>
         )}
       </div>

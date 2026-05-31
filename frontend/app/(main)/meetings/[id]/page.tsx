@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserCircle, Calendar, MapPin, Hash } from "lucide-react";
+import { ArrowLeft, UserCircle, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
