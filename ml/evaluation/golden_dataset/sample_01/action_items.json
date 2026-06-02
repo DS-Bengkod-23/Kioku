@@ -1,7 +1,7 @@
 [
   {
     "task": "pastikan API sudah ready sebelum Jumat",
-    "assignee": "Budi",
-    "deadline": "Jumat"
+    "assignee_name": "Budi",
+    "due_date_text": "Jumat"
   }
 ]

@@ -11,17 +11,17 @@ class TranscriptSegment(BaseModel):
 
 class TranscriptResult(BaseModel):
     segments: list[TranscriptSegment]
-    full_text: str
-    language: Optional[str] = None
-
-
-class ActionItem(BaseModel):
-    assignee: Optional[str]
-    task: str
-    deadline: Optional[str] = None
+    language: str
+    duration: float
 
 
 class SummaryResult(BaseModel):
-    summary: str
-    action_items: list[ActionItem]
-    key_points: list[str]
+    tldr: str
+    decisions: list[str]
+    topics: list[str]
+
+
+class ActionItem(BaseModel):
+    task: str
+    assignee_name: Optional[str] = None
+    due_date_text: Optional[str] = None
