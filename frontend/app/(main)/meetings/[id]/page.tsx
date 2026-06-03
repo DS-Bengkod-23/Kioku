@@ -55,8 +55,7 @@ export default function MeetingDetailPage() {
   const currentUserEmail = JSON.parse(localStorage.getItem("user_profile") || "{}").email;
   const isOrganizer = meeting?.organizer?.email === currentUserEmail;
 
-  const handleUpload = async (file?: File) => {
-    if (!file) return;
+  const handleUpload = async (file: File) => {
     const form = new FormData();
     form.append("file", file);
     try {
@@ -88,8 +87,7 @@ export default function MeetingDetailPage() {
     }
   };
 
-  const handleToggleAttendance = (participantId: string, currentStatus: string) => {
-    const newStatus = currentStatus === "hadir" ? "tidak_hadir" : "hadir";
+  const handleMarkAttendance = (participantId: string, newStatus: "hadir" | "tidak_hadir") => {
     updateAttendance({ participantId, status: newStatus });
   };
 
@@ -101,12 +99,19 @@ export default function MeetingDetailPage() {
   };
 
   // Map participants ke format AttendanceTable
-  const attendanceData = (meeting?.participants ?? []).map((p: any) => ({
-    id: p.id,
-    name: p.name || p.email.split("@")[0],
-    email: p.email,
-    status: p.attendance_status === "hadir" ? "Hadir" : "Tidak Hadir",
-  }));
+  const attendanceData = (meeting?.participants ?? []).map((p: any) => {
+    const rawStatus = p.attendance_status ?? "pending";
+    const status =
+      rawStatus === "hadir" ? "Hadir" :
+      rawStatus === "tidak_hadir" ? "Tidak Hadir" : "Belum Hadir";
+    return {
+      id: String(p.id),
+      name: p.name || p.email.split("@")[0],
+      email: p.email,
+      status: status as "Hadir" | "Tidak Hadir" | "Belum Hadir",
+      rawStatus,
+    };
+  });
 
   // Map action items ke format ActionItemList
   const actionItems = (meeting?.action_items ?? []).map((item: any) => {
@@ -272,6 +277,18 @@ export default function MeetingDetailPage() {
                 <p className="flex items-center gap-2.5"><Calendar className="text-purple-400" size={15} /> {formatDate(meeting.scheduled_at)}</p>
                 <p className="flex items-center gap-2.5"><MapPin className="text-purple-400" size={15} /> {meeting.location || "–"}</p>
               </div>
+              {meeting.description && (
+                <div className="pt-3 border-t border-white/5 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Deskripsi</p>
+                  <p className="text-xs text-slate-300 leading-relaxed">{meeting.description}</p>
+                </div>
+              )}
+              {meeting.agenda_text && (
+                <div className="pt-3 border-t border-white/5 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Agenda</p>
+                  <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">{meeting.agenda_text}</p>
+                </div>
+              )}
             </section>
 
             {/* Peserta */}
@@ -283,6 +300,7 @@ export default function MeetingDetailPage() {
             <section className="bg-[#110A31]/70 border border-white/5 p-6 rounded-2xl">
               <AttendanceTable
                 participants={attendanceData}
+                onMarkAttendance={isOrganizer ? handleMarkAttendance : undefined}
               />
             </section>
           </div>

@@ -101,6 +101,7 @@ export const updateMeeting = async (
     location?: string;
     description?: string;
     agenda_text?: string;
+    participant_emails?: string[];
   }
 ) => {
   const response = await api.patch(`/meetings/${id}`, data);
