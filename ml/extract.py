@@ -8,8 +8,20 @@ except ImportError:
     from schemas import SummaryResult, ActionItem
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Hybrid LLM Configuration
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
+
+if LLM_PROVIDER == "ollama":
+    MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+    # For Ollama, we point the OpenAI client to the local server
+    ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    client = OpenAI(
+        base_url=f"{ollama_host}/v1",
+        api_key="ollama" # required by the client but ignored by Ollama
+    )
+else:
+    MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def _load_prompt(name: str) -> str:

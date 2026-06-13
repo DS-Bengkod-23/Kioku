@@ -123,7 +123,7 @@ export const searchMeetings = async (q: string, params?: { page?: number; limit?
 
 export const uploadRecording = async (meetingId: string, formData: FormData) => {
   const response = await api.post(`/meetings/${meetingId}/recording`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+    headers: { "Content-Type": undefined },
   });
   return response.data;
 };

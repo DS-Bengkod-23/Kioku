@@ -37,9 +37,19 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
+    # LLM Provider
+    LLM_PROVIDER: str = "openai"
+
     # Ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "qwen2.5:7b"
+
+    # OpenAI
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # Hugging Face
+    HF_TOKEN: str = ""
 
     # Whisper
     WHISPER_MODEL: str = "large-v3"

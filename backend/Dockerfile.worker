@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies including those needed for ML like ffmpeg
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements from both backend and ml
+COPY backend/requirements.txt backend_requirements.txt
+COPY ml/requirements.txt ml_requirements.txt
+
+# Install dependencies
+RUN pip install --no-cache-dir -r backend_requirements.txt
+RUN pip install --no-cache-dir -r ml_requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Copy both source directories
+COPY backend/ backend/
+COPY ml/ ml/
+
+# Set PYTHONPATH so the Celery worker can import both backend/app and ml/
+ENV PYTHONPATH=/app/backend:/app
+
+WORKDIR /app/backend
+
+CMD ["celery", "-A", "app.worker", "worker", "--loglevel=info"]

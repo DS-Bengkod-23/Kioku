@@ -29,7 +29,7 @@ Built fully self-hosted with local LLM. No data leaves your machine.
 |---|---|
 | Frontend | Next.js, shadcn/ui, Tailwind CSS |
 | Backend | FastAPI, Celery, Redis, PostgreSQL |
-| ML Pipeline | Whisper large-v3, pyannote.audio, Ollama (qwen2.5:7b) |
+| ML Pipeline | Whisper large-v3, pyannote.audio, Hybrid LLM (OpenAI API / Ollama qwen2.5:7b) |
 | Storage | MinIO (S3-compatible, local) |
 | Email | Mailhog (dev) |
 | Infra | Docker Compose |
@@ -51,7 +51,8 @@ Before running, make sure you have:
 - Docker + Docker Compose
 - Python 3.11+
 - Node.js 20+
-- [Ollama](https://ollama.com) installed natively (for GPU access)
+- (Opsional) API Key OpenAI, ATAU
+- (Opsional) [Ollama](https://ollama.com) terinstall natively (untuk GPU access) jika ingin pakai model lokal
 - Minimum 16GB RAM (for qwen2.5:7b)
 - Minimum 20GB free disk
 
@@ -59,29 +60,27 @@ Before running, make sure you have:
 
 ## Quickstart
 
-**1. Clone repo**
+**1. Clone repo & Copy env file**
 ```bash
 git clone https://github.com/<your-username>/meetmate.git
 cd meetmate
-```
-
-**2. Copy env file**
-```bash
 cp .env.example .env
-# Edit .env sesuai kebutuhan (opsional untuk dev lokal)
 ```
 
-**3. Pull Ollama model**
+**2. Pilih LLM Provider di file .env**
+Di file `.env`, tentukan apakah Anda ingin menggunakan OpenAI atau Ollama:
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+*(Jika memilih `ollama`, pastikan Anda sudah menjalankan `ollama pull qwen2.5:7b` di terminal)*
+
+**3. Start semua services (via Docker)**
 ```bash
-ollama pull qwen2.5:7b
+make up
 ```
 
-**4. Start semua services**
-```bash
-docker compose up -d
-```
-
-Services yang akan berjalan:
+Services yang akan otomatis berjalan di Docker:
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:3000 |
@@ -89,19 +88,14 @@ Services yang akan berjalan:
 | API Docs | http://localhost:8000/docs |
 | MinIO Console | http://localhost:9001 |
 | Mailhog (email preview) | http://localhost:8025 |
+| Celery Worker | Background process |
 
-**5. Run database migration**
+**4. Run database migration**
 ```bash
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
+make migrate
 ```
 
-**6. Start Celery Worker**
-```bash
-cd backend
-celery -A app.worker worker --loglevel=info
-```
+Untuk melihat panduan alur kerja docker secara detail, silakan baca [DOCKER_WORKFLOW.md](docs/DOCKER_WORKFLOW.md).
 
 ---
 

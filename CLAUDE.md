@@ -12,25 +12,28 @@ MeetMate is a fully self-hosted, offline-first meeting management app. It covers
 
 ## Development Commands
 
-### Infrastructure (run first)
-```bash
-docker compose up -d
-```
-This starts PostgreSQL (5432), Redis (6379), MinIO (9000/9001), and Mailhog (1025/8025).
+We use a fully dockerized workflow. You do not need to install Python or Node.js locally.
 
-### Backend
+### Start Everything (Frontend, Backend API, ML Celery Worker, Postgres, Redis, MinIO, Mailhog)
 ```bash
-cd backend
-pip install -r requirements.txt
-alembic upgrade head                          # run migrations
-uvicorn app.main:app --reload --port 8000     # API server
-celery -A app.worker worker --loglevel=info   # background worker (separate terminal)
+make up
+```
+This builds all Docker images and starts them in the background.
+
+To rebuild containers after changing `requirements.txt` or `package.json`:
+```bash
+make build
+```
+
+### Database Migrations
+```bash
+make migrate   # runs `alembic upgrade head` inside the backend-api container
 ```
 
 Create a new migration after changing SQLAlchemy models:
 ```bash
-alembic revision --autogenerate -m "description"
-alembic upgrade head
+docker compose exec backend-api alembic revision --autogenerate -m "description"
+make migrate
 ```
 
 **Alembic + PostgreSQL enum pattern:** Jangan pakai `sa.Enum()` di dalam `op.create_table()` untuk kolom enum. `sa.Enum` mengabaikan `create_type=False`, sehingga SQLAlchemy mencoba membuat ulang tipe yang sudah ada dan melempar `DuplicateObject`. Pola yang benar:
@@ -43,32 +46,39 @@ postgresql.ENUM("foo", "bar", name="myenum").create(op.get_bind(), checkfirst=Tr
 sa.Column("col", postgresql.ENUM("foo", "bar", name="myenum", create_type=False))
 ```
 
-### Frontend
+### Logs
+```bash
+make logs         # all logs
+make logs-api     # backend API logs
+make logs-worker  # celery worker logs
+```
+
+### Frontend Commands (if needed locally)
+Adding shadcn components is still done from inside the frontend folder (requires local Node.js):
 ```bash
 cd frontend
-npm install
-npm run dev    # http://localhost:3000
-```
-
-Requires `frontend/.env.local`:
-```
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-```
-
-Add shadcn components with:
-```bash
 npx shadcn-ui@latest add <component-name>
 ```
 
-### ML Pipeline
+### ML Pipeline Setup
+We support a **Hybrid LLM Provider** (OpenAI API or Local Ollama). Configure it in `.env`:
+
+**Option A: OpenAI (Default)**
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+**Option B: Local Ollama (Requires GPU)**
+```env
+LLM_PROVIDER=ollama
+```
+Ollama must run natively on the host machine to access the GPU.
 ```bash
 ollama pull qwen2.5:7b
-ollama serve                    # must be running before Celery worker starts
-cd ml
-pip install -r requirements.txt
-export HF_TOKEN=your_token     # required for pyannote first-time model download
-python evaluation/evaluate.py  # measure WER + action item F1
+ollama serve                    # ensure it is running
 ```
+The Dockerized celery worker will access it via `http://host.docker.internal:11434`.
 
 ---
 
