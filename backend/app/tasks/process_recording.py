@@ -69,7 +69,8 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         try:
             from ml.transcribe import transcribe  # noqa: PLC0415
             transcript_result = transcribe(tmp_path)
-        except (NotImplementedError, ImportError):
+        except (NotImplementedError, ImportError) as e:
+            logger.error("TRANSCRIBE IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
             return
 
@@ -81,7 +82,8 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             from ml.diarize import diarize, merge_transcript_diarization  # noqa: PLC0415
             diarization = diarize(tmp_path)
             merged = merge_transcript_diarization(transcript_result, diarization)
-        except (NotImplementedError, ImportError):
+        except (NotImplementedError, ImportError) as e:
+            logger.error("DIARIZE IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
             return
 
@@ -105,7 +107,8 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             from ml.extract import extract_summary, extract_action_items  # noqa: PLC0415
             summary_result = extract_summary(transcript_text)
             action_items_result = extract_action_items(transcript_text, participant_names)
-        except (NotImplementedError, ImportError):
+        except (NotImplementedError, ImportError) as e:
+            logger.error("EXTRACT IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
             return
 

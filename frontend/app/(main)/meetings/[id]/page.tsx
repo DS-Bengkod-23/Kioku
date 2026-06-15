@@ -52,7 +52,10 @@ export default function MeetingDetailPage() {
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
 
   // Deteksi apakah user adalah organizer
-  const currentUserEmail = JSON.parse(localStorage.getItem("user_profile") || "{}").email;
+  // localStorage hanya tersedia di browser (bukan saat SSR)
+  const currentUserEmail = typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("user_profile") || "{}").email
+    : null;
   const isOrganizer = meeting?.organizer?.email === currentUserEmail;
 
   const handleUpload = async (file: File) => {

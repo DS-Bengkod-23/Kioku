@@ -172,18 +172,17 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-**3. Jalankan Celery Worker** (terminal baru, dari root project, pakai Anaconda/conda env yang sudah install `ml/requirements.txt`)
-
-*Windows (CMD / Anaconda Prompt):*
-```cmd
-scripts\start-worker.bat
-```
-
-*Mac / Linux:*
+**3. Build dan jalankan Celery Worker via Docker** (pertama kali build ~10-15 menit)
 ```bash
-chmod +x scripts/start-worker.sh   # sekali saja
-./scripts/start-worker.sh
+docker compose build celery-worker
+docker compose up -d --no-deps celery-worker
 ```
+
+> Worker dijalankan via Docker (bukan conda lokal) untuk menghindari masalah kompatibilitas DLL di Windows.
+> Jika ada perubahan kode di `ml/` atau `ml/requirements.txt`, jalankan ulang kedua command di atas.
+
+> Untuk mendapatkan `HF_TOKEN` dan accept license pyannote — lihat langkah yang sama di Opsi A di atas.
+> Model Whisper dan pyannote akan didownload otomatis saat pertama kali memproses recording (~3-4GB).
 
 **4. Jalankan Frontend** (terminal baru, dari folder `frontend/`)
 ```bash
@@ -192,7 +191,11 @@ npm install
 npm run dev
 ```
 
-**5. Buka** `http://localhost:3000`
+**5. Setup MinIO bucket** (hanya perlu dilakukan sekali)
+
+Buka http://localhost:9001 → login dengan `minioadmin` / `minioadmin` → buat bucket baru bernama `meetmate-recordings`.
+
+**6. Buka** `http://localhost:3000`
 
 ---
 
