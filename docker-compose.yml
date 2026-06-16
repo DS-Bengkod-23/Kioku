@@ -26,7 +26,7 @@ services:
       - DATABASE_URL=postgresql://meetmate:meetmate@postgres:5432/meetmate
       - REDIS_URL=redis://redis:6379
       - MINIO_ENDPOINT=minio:9000
-      - SMTP_HOST=mailhog
+      - SMTP_HOST=${SMTP_HOST_DOCKER:-mailhog}
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,7 +45,7 @@ services:
       - DATABASE_URL=postgresql://meetmate:meetmate@postgres:5432/meetmate
       - REDIS_URL=redis://redis:6379
       - MINIO_ENDPOINT=minio:9000
-      - SMTP_HOST=mailhog
+      - SMTP_HOST=${SMTP_HOST_DOCKER:-mailhog}
       # OLLAMA_HOST diset ke host.docker.internal karena Ollama di-run secara native di host agar dapat akses GPU
       - OLLAMA_HOST=http://host.docker.internal:11434
       - LLM_PROVIDER=${LLM_PROVIDER:-openai}
