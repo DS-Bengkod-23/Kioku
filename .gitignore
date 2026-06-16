@@ -131,3 +131,8 @@ coverage.xml
 *.tmp
 *.temp
 .DS_Store
+
+# ================================
+# Internal / Local Only
+# ================================
+review-pr/

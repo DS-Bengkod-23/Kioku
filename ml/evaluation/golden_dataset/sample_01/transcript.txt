@@ -1,0 +1,1 @@
+Oke kita mulai rapatnya jadi Agenda hari ini review progress aplikasi. Siap. Dari sisi frontend sudah selesai halaman login sama dashboard. oke Bagus. Deadline backend kapan? Insya Allah selesai Jumat ini. Oke Budi tolong pastikan API sudah ready sebelum Jumat ya. Siap akan aku kerjakan.

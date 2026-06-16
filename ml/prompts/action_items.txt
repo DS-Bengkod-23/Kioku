@@ -1,0 +1,16 @@
+Berikut adalah transkrip rapat:
+
+{transcript}
+
+Peserta rapat: {participant_names}
+
+Ekstrak semua action item dari transkrip di atas. Kembalikan HANYA JSON array seperti ini:
+[
+  {{
+    "task": "deskripsi tugas yang harus dikerjakan",
+    "assignee_name": "nama orang dari daftar peserta (atau null jika tidak disebutkan)",
+    "due_date_text": "deadline jika disebutkan, atau null"
+  }}
+]
+
+Kembalikan HANYA JSON array, tanpa teks lain.

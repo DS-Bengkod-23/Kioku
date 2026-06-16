@@ -131,6 +131,7 @@ export const uploadRecording = async (
       if (!onUploadProgress || !event.total) return;
       onUploadProgress(Math.round((event.loaded / event.total) * 100));
     },
+    headers: { "Content-Type": undefined },
   });
   return response.data;
 };

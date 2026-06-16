@@ -44,7 +44,10 @@ Authorization: Bearer <jwt_token>
 ```json
 {
   "access_token": "jwt_token_here",
-  "token_type": "bearer"
+  "token_type": "bearer",
+  "id": "uuid",
+  "name": "Audi",
+  "email": "audi@email.com"
 }
 ```
 

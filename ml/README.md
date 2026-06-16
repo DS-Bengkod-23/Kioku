@@ -10,7 +10,7 @@ Speech-to-text, diarization, dan LLM extraction untuk MeetMate.
 
 - **Whisper large-v3** - transcription (speech to text)
 - **pyannote.audio** - speaker diarization
-- **Ollama + qwen2.5:7b** - summary + action item extraction
+- **Hybrid LLM (OpenAI API / Ollama qwen2.5:7b)** - summary + action item extraction
 
 ---
 
@@ -25,10 +25,6 @@ ml/
 ├── prompts/
 │   ├── summary.txt     # prompt template untuk summary
 │   └── action_items.txt # prompt template untuk action items
-├── notebooks/          # eksperimen, tidak dipakai backend
-│   ├── 01_whisper_test.ipynb
-│   ├── 02_diarization_test.ipynb
-│   └── 03_llm_extraction_test.ipynb
 ├── evaluation/
 │   ├── golden_dataset/ # 10 sample meeting untuk evaluasi
 │   └── evaluate.py     # script ukur WER + action item F1
@@ -40,28 +36,49 @@ ml/
 
 ## Setup
 
-**1. Install Ollama**
+**1. Install ffmpeg** (system dependency, bukan Python package)
 
-Download di https://ollama.com, lalu pull model:
+```bash
+# Conda (rekomendasi)
+conda install -c conda-forge ffmpeg
+
+# Atau download binary di https://ffmpeg.org/download.html dan tambah ke PATH
+```
+
+Whisper butuh `ffmpeg` untuk membaca file audio. Tanpa ini akan muncul `[WinError 2] The system cannot find the file specified`.
+
+**2. Install dependency Python**
+```bash
+pip install -r requirements.txt
+```
+
+**2. Konfigurasi LLM Provider**
+
+Set di file `.env` di root repo (pilih salah satu):
+
+```env
+# Opsi A: OpenAI API (rekomendasi, tidak perlu GPU)
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+
+# Opsi B: Ollama lokal (butuh GPU, gratis)
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b
+```
+
+Jika pakai Ollama, install dan jalankan dulu di host machine:
 ```bash
 ollama pull qwen2.5:7b
 ollama serve
 ```
 
-**2. Install dependency**
-```bash
-pip install -r requirements.txt
-```
-
 **3. Pyannote setup**
 
-pyannote butuh Hugging Face token untuk download model pertama kali:
-```bash
-pip install pyannote.audio
-```
-Buat akun di https://huggingface.co, accept terms model `pyannote/speaker-diarization-3.1`, lalu set token:
-```bash
-export HF_TOKEN=your_token_here
+pyannote butuh Hugging Face token untuk download model pertama kali. Buat akun di https://huggingface.co, accept terms model `pyannote/speaker-diarization-3.1`, lalu set di `.env`:
+```env
+HF_TOKEN=hf_...
 ```
 
 ---
@@ -70,12 +87,9 @@ export HF_TOKEN=your_token_here
 
 Urutan development yang disarankan:
 
-1. Test Whisper di notebook `01_whisper_test.ipynb`
-2. Test diarization di notebook `02_diarization_test.ipynb`
-3. Test LLM extraction di notebook `03_llm_extraction_test.ipynb`
-4. Setelah semua notebook jalan, pindahkan kode ke `.py` files
-5. Pastikan function signature sesuai `docs/ML_INTERFACE.md`
-6. Jalankan `evaluation/evaluate.py` untuk ukur kualitas
+1. Pastikan function signature sesuai `docs/ML_INTERFACE.md`
+2. Test masing-masing modul secara terpisah (`transcribe.py`, `diarize.py`, `extract.py`)
+3. Jalankan `evaluation/evaluate.py` untuk ukur kualitas
 
 ---
 

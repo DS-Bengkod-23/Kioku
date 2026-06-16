@@ -1,0 +1,11 @@
+{
+  "samples": [
+    {
+      "sample": "sample_01",
+      "wer": 0.3333,
+      "action_item_f1": 1.0
+    }
+  ],
+  "avg_wer": 0.3333,
+  "avg_f1": 1.0
+}

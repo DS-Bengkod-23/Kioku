@@ -30,11 +30,14 @@ backend/
 │   │   ├── auth.py
 │   │   ├── meetings.py
 │   │   ├── recordings.py
+│   │   ├── action_items.py
 │   │   └── checkin.py
 │   ├── models/              # SQLAlchemy models (tabel DB)
 │   │   ├── user.py
 │   │   ├── meeting.py
 │   │   ├── participant.py
+│   │   ├── attendance.py
+│   │   ├── invitation.py
 │   │   ├── recording.py
 │   │   ├── transcript.py
 │   │   ├── summary.py
@@ -43,13 +46,18 @@ backend/
 │   ├── schemas/             # Pydantic schemas (request/response)
 │   │   ├── auth.py
 │   │   ├── meeting.py
-│   │   └── recording.py
+│   │   ├── recording.py
+│   │   ├── action_item.py
+│   │   └── checkin.py
 │   ├── services/            # business logic
 │   │   ├── auth.py
 │   │   ├── meeting.py
+│   │   ├── recording.py
+│   │   ├── action_item.py
+│   │   ├── invitation.py
+│   │   ├── checkin.py
 │   │   ├── storage.py       # upload/download MinIO
-│   │   ├── email.py         # kirim email via SMTP
-│   │   └── pipeline.py      # orchestrate ML pipeline
+│   │   └── email.py         # kirim email via SMTP
 │   └── tasks/
 │       └── process_recording.py  # Celery task utama
 ├── alembic/                 # migration files
@@ -83,9 +91,22 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
-**5. Jalankan Celery Worker** (terminal terpisah)
+**5. Jalankan Celery Worker** (terminal terpisah, dari root project)
+
+*Windows:*
+```cmd
+scripts\start-worker.bat
+```
+
+*Mac / Linux:*
 ```bash
-celery -A app.worker worker --loglevel=info
+./scripts/start-worker.sh
+```
+
+Atau manual (dari folder `backend/`):
+```bash
+# Windows: tambah --pool=solo karena Windows tidak support fork()
+python -m celery -A app.worker worker --loglevel=info --pool=solo
 ```
 
 ---

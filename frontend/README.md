@@ -42,6 +42,8 @@ frontend/
 │   │   │   │   └── page.tsx      # form create meeting
 │   │   │   └── [id]/
 │   │   │       ├── page.tsx      # detail meeting + notulen
+│   │   │       ├── edit/
+│   │   │       │   └── page.tsx  # edit meeting
 │   │   │       └── recording/
 │   │   │           └── page.tsx  # upload & proses rekaman
 │   │   ├── action-items/
@@ -53,8 +55,10 @@ frontend/
 │           └── page.tsx          # halaman publik check-in (no login)
 ├── components/
 │   ├── ui/                       # shadcn components (auto-generated)
+│   │   ├── alert-dialog.tsx
 │   │   ├── button.tsx
-│   │   └── dropdown-menu.tsx
+│   │   ├── dropdown-menu.tsx
+│   │   └── form-error.tsx
 │   ├── meetings/
 │   │   ├── MeetingCard.tsx
 │   │   ├── MeetingForm.tsx
@@ -72,7 +76,9 @@ frontend/
 │   └── utils.ts
 ├── hooks/
 │   ├── useMeetings.ts
-│   └── useProcessingStatus.ts   # polling status processing
+│   ├── useMeeting.ts
+│   ├── useActionItems.ts
+│   └── useRecording.ts          # polling status processing rekaman
 ├── types/
 │   └── index.ts                  # TypeScript types sesuai API Contract
 ├── package.json
@@ -101,7 +107,7 @@ Buka http://localhost:3000
 
 ---
 
-## Halaman yang Perlu Dibuat
+## Daftar Halaman
 
 | Halaman | Route | Auth |
 |---|---|---|
@@ -110,6 +116,8 @@ Buka http://localhost:3000
 | Dashboard meetings | /meetings | Yes |
 | Create meeting | /meetings/new | Yes |
 | Detail meeting | /meetings/[id] | Yes |
+| Edit meeting | /meetings/[id]/edit | Yes |
+| Upload rekaman | /meetings/[id]/recording | Yes |
 | Check-in peserta | /check-in/[token] | No (public) |
 | Action items saya | /action-items | Yes |
 
