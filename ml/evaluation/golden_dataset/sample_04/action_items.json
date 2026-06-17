@@ -1,0 +1,12 @@
+[
+  {
+    "task": "kirimkan poin-poin materi simulasi kerja yang dianggap penting ke Maya",
+    "assignee_name": "Fajar",
+    "due_date_text": "Jumat"
+  },
+  {
+    "task": "siapkan program onboarding",
+    "assignee_name": "Maya",
+    "due_date_text": "dua minggu sebelum karyawan baru masuk"
+  }
+]

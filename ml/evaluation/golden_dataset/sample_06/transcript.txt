@@ -1,0 +1,7 @@
+Tono: Selamat siang. Kita perlu membahas lonjakan keluhan pelanggan minggu ini yang cukup signifikan. Rina, bisa ceritakan keluhannya seperti apa?
+Rina: Sebagian besar keluhan soal fitur notifikasi yang tidak berfungsi sejak update terakhir, Pak. Sudah masuk lebih dari 50 tiket dalam tiga hari.
+Yogi: Iya, Pak Tono. Tim teknis sudah identifikasi bug-nya. Ada konflik antara library baru dengan versi lama di beberapa perangkat. Perbaikannya sedang dalam proses.
+Tono: Estimasinya kapan selesai, Yogi?
+Yogi: Besok sore paling lambat, Pak. Kami akan push hotfix langsung tanpa menunggu jadwal update rutin.
+Rina: Kalau begitu saya bisa mulai balas semua tiket dengan informasi ini. Apakah perlu saya tawarkan kompensasi untuk pelanggan yang terdampak?
+Tono: Untuk pelanggan premium, tawarkan perpanjangan berlangganan satu minggu sebagai permohonan maaf. Oke, kita akhiri rapatnya. Yogi segera kabari saya begitu hotfix live.

@@ -1,0 +1,7 @@
+Dewi: Selamat siang. Kita kumpul hari ini untuk membahas proyek aplikasi mobile yang akan kita mulai bulan depan. Andi, sudah ada gambaran teknologi yang akan digunakan?
+Andi: Sudah, Kak Dewi. Saya rekomendasikan kita pakai React Native supaya bisa sekaligus cover Android dan iOS. Lebih efisien dari sisi waktu pengembangan.
+Lina: Dari sisi desain saya setuju. Tapi perlu dipastikan dulu, apakah klien punya preferensi tampilan tertentu? Karena kemarin sempat ada permintaan yang cukup spesifik soal warna brand mereka.
+Dewi: Poin bagus, Lina. Minggu depan kita ada meeting dengan klien, jadi kamu bisa langsung tanyakan soal brand guideline mereka saat itu.
+Andi: Sambil menunggu, saya bisa mulai setup struktur project dan environment dulu supaya tidak buang waktu.
+Lina: Saya juga bisa mulai riset referensi desain yang relevan dengan industri klien.
+Dewi: Oke, deal. Kita ketemu lagi setelah meeting klien minggu depan. Terima kasih, semua.

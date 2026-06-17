@@ -1,0 +1,17 @@
+[
+  {
+    "task": "proses pemesanan katering dan perlengkapan meja untuk 100 orang",
+    "assignee_name": "Taufik",
+    "due_date_text": "hari ini"
+  },
+  {
+    "task": "buat checklist final acara dan bagikan ke Pak Rizal dan Taufik",
+    "assignee_name": "Mega",
+    "due_date_text": null
+  },
+  {
+    "task": "cek ulang persiapan acara bersama",
+    "assignee_name": null,
+    "due_date_text": "H-3 acara"
+  }
+]
