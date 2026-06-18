@@ -24,11 +24,11 @@ import ActionItemList from "@/components/notulen/ActionItemList";
 import SummaryCard from "@/components/notulen/SummaryCard";
 import TranscriptView from "@/components/notulen/TranscriptView";
 import AttendanceTable from "@/components/meetings/AttendanceTable";
-import ParticipantList from "@/components/meetings/ParticipantList";
+
 
 import { useMeeting, useUpdateAttendance, useDeleteMeeting } from "@/hooks/useMeeting";
 import { useUploadRecording, useRecordingStatus, useDeleteRecording } from "@/hooks/useRecording";
-import { useUpdateActionItem } from "@/hooks/useActionItems";
+import { useUpdateActionItem, useCreateActionItem } from "@/hooks/useActionItems";
 
 function formatDate(isoString: string) {
   return new Date(isoString).toLocaleDateString("id-ID", {
@@ -53,8 +53,16 @@ export default function MeetingDetailPage() {
   useEffect(() => {
     setRecordingFileName(localStorage.getItem(recordingFilenameKey));
   }, [recordingFilenameKey]);
+
+  // Auto-enable polling saat refresh jika ML masih memproses
+  useEffect(() => {
+    if (["queued", "transcribing", "diarizing", "extracting", "sending_email"].includes(meeting?.processing_status)) {
+      setPollingEnabled(true);
+    }
+  }, [meeting?.processing_status]);
   const { mutate: updateAttendance } = useUpdateAttendance(id);
   const { mutate: updateActionItem } = useUpdateActionItem(id);
+  const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
 
   // Deteksi apakah user adalah organizer
@@ -115,6 +123,15 @@ export default function MeetingDetailPage() {
     updateActionItem({ id: String(taskId), assigneeId: assigneeId || null });
   };
 
+  const handleCreateActionItem = async (data: { task: string; assigneeParticipantId: string | null; dueDate: string | null }) => {
+    try {
+      await createActionItem({ task: data.task, assignee_participant_id: data.assigneeParticipantId, due_date: data.dueDate });
+      toast.success("Action item berhasil ditambahkan.");
+    } catch {
+      toast.error("Gagal menambahkan action item.");
+    }
+  };
+
   // Map participants ke format AttendanceTable
   const attendanceData = (meeting?.participants ?? []).map((p: any) => {
     const rawStatus = p.attendance_status ?? "pending";
@@ -130,13 +147,13 @@ export default function MeetingDetailPage() {
     };
   });
 
-  // Lookup name peserta berdasarkan participant id (untuk display nama assignee dan pre-select dropdown)
-  const participantNameById: Record<string, string> = Object.fromEntries(
-    (meeting?.participants ?? []).map((p: any) => [
-      String(p.id),
-      p.name || p.email?.split("@")[0] || "Tanpa Nama",
-    ])
-  );
+  const getActionItemPriority = (dueDate?: string | null): "Tinggi" | "Sedang" | "Rendah" => {
+    if (!dueDate) return "Rendah";
+    const diffDays = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
+    if (diffDays < 0) return "Tinggi";
+    if (diffDays <= 3) return "Sedang";
+    return "Rendah";
+  };
 
   // Map action items ke format ActionItemList
   const actionItems = (meeting?.action_items ?? []).map((item: any) => {
@@ -147,11 +164,11 @@ export default function MeetingDetailPage() {
     return {
       id: item.id,
       task: item.task,
-      assignee: participantNameById[item.assignee_participant_id] || "Belum di-assign",
-      assigneeId: item.assignee_participant_id ?? null,
-      dueDate: item.due_date || "2099-12-31",
+      assignee: item.assignee?.name || "Belum di-assign",
+      assigneeId: item.assignee?.id ?? null,
+      dueDate: item.due_date ?? undefined,
       status,
-      priority: "Sedang" as const,
+      priority: getActionItemPriority(item.due_date),
     };
   });
 
@@ -323,11 +340,6 @@ export default function MeetingDetailPage() {
               )}
             </section>
 
-            {/* Peserta */}
-            <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
-              <ParticipantList emails={(meeting.participants ?? []).map((p: any) => p.email)} />
-            </section>
-
             {/* Kehadiran */}
             <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
               <AttendanceTable
@@ -393,6 +405,7 @@ export default function MeetingDetailPage() {
                 onToggle={handleToggleTask}
                 participants={participantOptions}
                 onAssign={isOrganizer ? handleAssignTask : undefined}
+                onAdd={isOrganizer ? handleCreateActionItem : undefined}
               />
             </section>
 

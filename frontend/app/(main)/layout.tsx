@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Video, CheckSquare, User, LogOut } from "lucide-react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { logoutUser } from "@/lib/api";
 
 export default function MainDashboardLayout({
     children,
@@ -12,7 +13,6 @@ export default function MainDashboardLayout({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const router = useRouter();
     const pathname = usePathname();
     const isActive = (href: string) => pathname.startsWith(href);
 
@@ -110,7 +110,7 @@ export default function MainDashboardLayout({
                                     <User size={14} /> Personal Info
                                 </Link>
                                 <button
-                                    onClick={() => router.push('/login')}
+                                    onClick={() => logoutUser()}
                                     className="flex items-center gap-3 px-4 py-3 text-xs text-rose-500 hover:bg-rose-50 w-full transition"
                                 >
                                     <LogOut size={14} /> Log Out

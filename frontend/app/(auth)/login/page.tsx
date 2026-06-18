@@ -42,7 +42,7 @@ export default function LoginPage() {
       toast.success("Login berhasil! Menyiapkan dashboard Anda...");
       setTimeout(() => {
         setIsFlying(true);
-        setTimeout(() => router.push("/meetings"), 1000);
+        setTimeout(() => router.replace("/meetings"), 1000);
       }, 600);
     } catch (err: any) {
       setFormError(extractApiError(err, "Email atau password salah."));

@@ -194,4 +194,12 @@ export const updateActionItem = async (
   return response.data;
 };
 
+export const createActionItem = async (
+  meetingId: string,
+  data: { task: string; assignee_participant_id?: string | null; due_date?: string | null }
+) => {
+  const response = await api.post(`/meetings/${meetingId}/action-items`, data);
+  return response.data;
+};
+
 export default api;
