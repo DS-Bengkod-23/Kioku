@@ -130,6 +130,14 @@ export default function MeetingDetailPage() {
     };
   });
 
+  // Lookup name peserta berdasarkan participant id (untuk display nama assignee dan pre-select dropdown)
+  const participantNameById: Record<string, string> = Object.fromEntries(
+    (meeting?.participants ?? []).map((p: any) => [
+      String(p.id),
+      p.name || p.email?.split("@")[0] || "Tanpa Nama",
+    ])
+  );
+
   // Map action items ke format ActionItemList
   const actionItems = (meeting?.action_items ?? []).map((item: any) => {
     const isOverdue = item.due_date && isDateOverdue(item.due_date);
@@ -139,8 +147,8 @@ export default function MeetingDetailPage() {
     return {
       id: item.id,
       task: item.task,
-      assignee: item.assignee?.name || "Belum di-assign",
-      assigneeId: item.assignee?.id ?? null,
+      assignee: participantNameById[item.assignee_participant_id] || "Belum di-assign",
+      assigneeId: item.assignee_participant_id ?? null,
       dueDate: item.due_date || "2099-12-31",
       status,
       priority: "Sedang" as const,

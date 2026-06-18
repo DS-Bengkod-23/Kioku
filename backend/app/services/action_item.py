@@ -16,15 +16,31 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if meeting.organizer_id == user_id:
-        pass
-    else:
-        if action_item.assignee_participant and action_item.assignee_participant.user_id == user_id:
-            pass
-        else:
-            raise HTTPException(status_code=403, detail="Not authorized to update this action item")
+    update_data = data.model_dump(exclude_unset=True)
+    is_organizer = meeting.organizer_id == user_id
 
-    action_item.status = data.status
+    if "status" in update_data:
+        is_current_assignee = (
+            action_item.assignee_participant is not None
+            and action_item.assignee_participant.user_id == user_id
+        )
+        if not (is_organizer or is_current_assignee):
+            raise HTTPException(status_code=403, detail="Not authorized to update this action item")
+        action_item.status = update_data["status"]
+
+    if "assignee_participant_id" in update_data:
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Hanya organizer yang bisa assign action item")
+        new_assignee_id = update_data["assignee_participant_id"]
+        if new_assignee_id is not None:
+            participant = db.query(MeetingParticipant).filter(
+                MeetingParticipant.id == new_assignee_id,
+                MeetingParticipant.meeting_id == meeting.id,
+            ).first()
+            if not participant:
+                raise HTTPException(status_code=400, detail="Participant bukan anggota rapat ini")
+        action_item.assignee_participant_id = new_assignee_id
+
     db.commit()
     db.refresh(action_item)
     return action_item

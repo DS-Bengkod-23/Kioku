@@ -42,10 +42,10 @@ dueDate: item.due_date ?? undefined,
 
 ---
 
-### 4. Manual assignment action items ke peserta (PLAN READY)
+### 4. Manual assignment action items ke peserta
 **Plan file:** `plan/action-item-assign.md`  
-**Status:** Perlu koordinasi dengan Helena (FE) sebelum eksekusi.  
-**Scope:** 7 file (3 backend, 4 frontend) — tidak perlu koordinasi ML.
+**Status:** ✅ FE selesai — menunggu 3 perubahan BE (spek lengkap di plan file).  
+**Scope:** 3 backend — tidak perlu koordinasi ML. Jangan merge FE ke `main` sebelum BE rilis.
 
 ---
 

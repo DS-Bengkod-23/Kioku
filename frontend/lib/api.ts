@@ -188,7 +188,7 @@ export const getMyActionItems = async (status?: "open" | "done") => {
 
 export const updateActionItem = async (
   id: string,
-  payload: { status?: "open" | "done"; assignee_id?: string | null }
+  payload: { status?: "open" | "done"; assignee_participant_id?: string | null }
 ) => {
   const response = await api.patch(`/action-items/${id}`, payload);
   return response.data;
