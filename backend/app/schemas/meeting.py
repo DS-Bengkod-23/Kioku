@@ -152,6 +152,15 @@ class MeetingDetail(BaseModel):
                 "id": str(ai.id),
                 "task": ai.task,
                 "assignee_participant_id": str(ai.assignee_participant_id) if ai.assignee_participant_id else None,
+                "assignee": (
+                    {
+                        "id": str(ai.assignee_participant.user.id),
+                        "name": ai.assignee_participant.user.name,
+                        "email": ai.assignee_participant.user.email,
+                    }
+                    if ai.assignee_participant and ai.assignee_participant.user
+                    else None
+                ),
                 "due_date": ai.due_date.isoformat() if ai.due_date else None,
                 "status": ai.status.value if hasattr(ai.status, "value") else ai.status,
             }

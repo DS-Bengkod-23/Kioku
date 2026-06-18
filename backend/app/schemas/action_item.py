@@ -49,7 +49,8 @@ class ActionItemResponse(BaseModel):
         }
 
 class ActionItemUpdateRequest(BaseModel):
-    status: ActionItemStatus
+    status: Optional[ActionItemStatus] = None
+    assignee_participant_id: Optional[UUID] = None
 
 class MeetingSimpleResponse(BaseModel):
     id: UUID

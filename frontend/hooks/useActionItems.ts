@@ -19,7 +19,7 @@ export function useUpdateActionItem(meetingId?: string) {
       id: string;
       status?: "open" | "done";
       assigneeId?: string | null;
-    }) => updateActionItem(id, { status, assignee_id: assigneeId }),
+    }) => updateActionItem(id, { status, assignee_participant_id: assigneeId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["action-items"] });
       if (meetingId) {
