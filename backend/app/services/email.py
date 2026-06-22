@@ -2,12 +2,15 @@ import smtplib
 import uuid
 import logging
 from datetime import datetime
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.email_log import EmailLog, EmailType, EmailStatus
+from app.services.qr import generate_qr_base64
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,7 @@ def send_invitation_email(
     checkin_url = f"{settings.APP_BASE_URL}/check-in/{checkin_token}"
     scheduled_str = scheduled_at.strftime("%d %B %Y %H:%M")
     location_str = location or "-"
+    qr_b64 = generate_qr_base64(checkin_url)
 
     body_html = f"""<html><body>
 <p>Yth. {recipient_name},</p>
@@ -46,6 +50,8 @@ def send_invitation_email(
 </ul>
 <p>Konfirmasi kehadiran Anda melalui tautan berikut:<br>
 <a href="{checkin_url}">{checkin_url}</a></p>
+<p>Atau scan QR code berikut:</p>
+<img src="data:image/png;base64,{qr_b64}" width="200" height="200" alt="QR Check-in"/>
 <p>Terima kasih.</p>
 </body></html>"""
 
@@ -78,49 +84,38 @@ def send_notulen_email(
     recipient_name: str,
     meeting_title: str,
     scheduled_at: datetime,
-    summary_tldr: str,
-    decisions: list[str],
-    action_items: list[dict],
+    checkin_url: str,
+    pdf_bytes: bytes,
     meeting_id: uuid.UUID,
     db: Session,
 ) -> None:
     scheduled_str = scheduled_at.strftime("%d %B %Y %H:%M")
 
-    decisions_html = "".join(f"<li>{d}</li>" for d in decisions) if decisions else "<li>-</li>"
-
-    if action_items:
-        rows = "".join(
-            f"<tr><td>{item.get('task', '')}</td>"
-            f"<td>{item.get('due_date') or '-'}</td></tr>"
-            for item in action_items
-        )
-        action_items_html = (
-            "<table border='1' cellpadding='4'>"
-            "<thead><tr><th>Tugas</th><th>Tenggat</th></tr></thead>"
-            f"<tbody>{rows}</tbody></table>"
-        )
-    else:
-        action_items_html = "<p>Tidak ada action item untuk Anda.</p>"
-
     body_html = f"""<html><body>
 <p>Yth. {recipient_name},</p>
-<p>Berikut notulen rapat <b>{meeting_title}</b> pada {scheduled_str}.</p>
-<h3>Ringkasan</h3>
-<p>{summary_tldr}</p>
-<h3>Keputusan</h3>
-<ul>{decisions_html}</ul>
-<h3>Action Item Anda</h3>
-{action_items_html}
+<p>Rapat <b>{meeting_title}</b> pada {scheduled_str} telah selesai diproses.</p>
+<p>Notulen lengkap (ringkasan, keputusan, dan action item Anda) tersedia di portal peserta:</p>
+<p><a href="{checkin_url}" style="font-size:16px;font-weight:bold;">Buka Portal Saya &rarr;</a></p>
+<p>Notulen PDF terlampir pada email ini.</p>
 <p>Terima kasih.</p>
 </body></html>"""
 
+    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in meeting_title)
+
     status = EmailStatus.sent
     try:
-        msg = MIMEMultipart("alternative")
+        msg = MIMEMultipart("mixed")
         msg["Subject"] = f"Notulen Rapat: {meeting_title}"
         msg["From"] = settings.SMTP_USER or "noreply@meetmate.local"
         msg["To"] = recipient_email
+
         msg.attach(MIMEText(body_html, "html"))
+
+        att = MIMEBase("application", "octet-stream")
+        att.set_payload(pdf_bytes)
+        encoders.encode_base64(att)
+        att.add_header("Content-Disposition", f'attachment; filename="notulen-{safe_title}.pdf"')
+        msg.attach(att)
 
         with _smtp_connection() as conn:
             conn.sendmail(msg["From"], [recipient_email], msg.as_string())

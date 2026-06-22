@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
 
@@ -67,8 +67,8 @@ async def upload_recording(
     )
     db.add(recording)
 
-    # Lock attendance 2 jam setelah recording diupload
-    meeting.attendance_locked_at = datetime.now(timezone.utc) + timedelta(hours=2)
+    # Lock attendance segera saat recording diupload — sinyal meeting sudah selesai
+    meeting.attendance_locked_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(recording)

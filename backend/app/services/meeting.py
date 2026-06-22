@@ -28,7 +28,8 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
         scheduled_at=data.scheduled_at,
         location=data.location,
         description=data.description,
-        agenda_text=data.agenda_text
+        agenda_text=data.agenda_text,
+        duration_minutes=data.duration_minutes,
     )
     db.add(meeting)
     db.flush()

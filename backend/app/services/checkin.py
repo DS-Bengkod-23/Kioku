@@ -22,8 +22,9 @@ from app.schemas.checkin import (
 def _is_attendance_locked(meeting: Meeting) -> bool:
     if meeting.attendance_locked_at:
         return datetime.now(timezone.utc) > meeting.attendance_locked_at
-    # fallback: 48 jam dari scheduled_at
-    return datetime.now(timezone.utc) > meeting.scheduled_at + timedelta(hours=48)
+    grace = timedelta(minutes=30)
+    scheduled_end = meeting.scheduled_at + timedelta(minutes=meeting.duration_minutes)
+    return datetime.now(timezone.utc) > scheduled_end + grace
 
 
 def _get_participant_from_token(db: Session, token: str) -> tuple[Invitation, MeetingParticipant, Meeting]:
