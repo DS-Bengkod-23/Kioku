@@ -12,6 +12,7 @@ class MeetingCreate(BaseModel):
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     participant_emails: List[str]
+    duration_minutes: int = 60
 
 
 class MeetingUpdate(BaseModel):
@@ -20,6 +21,7 @@ class MeetingUpdate(BaseModel):
     location: Optional[str] = None
     description: Optional[str] = None
     agenda_text: Optional[str] = None
+    duration_minutes: Optional[int] = None
 
 
 class ParticipantResponse(BaseModel):
@@ -115,6 +117,7 @@ class MeetingDetail(BaseModel):
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     status: str
+    duration_minutes: int
     organizer: OrganizerResponse
     participants: List[ParticipantResponse]
     recording: Optional[RecordingResponse] = None
@@ -175,6 +178,7 @@ class MeetingDetail(BaseModel):
             "description": data.description,
             "agenda_text": data.agenda_text,
             "status": status,
+            "duration_minutes": data.duration_minutes,
             "organizer": data.organizer,
             "participants": data.participants,
             "recording": data.recording,

@@ -53,6 +53,17 @@ make logs-api     # backend API logs
 make logs-worker  # celery worker logs
 ```
 
+### Reset Database
+```bash
+make down-v   # stops all containers AND deletes volumes (full DB wipe)
+```
+Run `make up && make migrate` after this to start fresh.
+
+### Pre-commit
+```bash
+make pre-commit   # runs pre-commit hooks against all files manually
+```
+
 ### Frontend Commands (if needed locally)
 Adding shadcn components is still done from inside the frontend folder (requires local Node.js):
 ```bash
@@ -110,7 +121,9 @@ The Dockerized celery worker will access it via `http://host.docker.internal:114
 4. Results saved to DB (Transcript, Summary, ActionItem tables)
 5. Email distributed to all participants automatically
 
-Frontend polls `GET /meetings/:id/recording/status` to track pipeline progress.
+Frontend polls `GET /meetings/:id/recording/status` every 3 seconds until status is `completed` or `failed`.
+
+**`ProcessingStatus` pipeline stages** (in order): `queued` → `transcribing` → `diarizing` → `extracting` → `sending_email` → `completed` | `failed`. Individual step completion is tracked in `recording.processing_steps` (JSONB). On failure, `recording.error_message` contains the reason.
 
 ### Backend Structure (`backend/app/`)
 
@@ -150,9 +163,16 @@ from ml.extract import extract_summary, extract_action_items
   - `action-items/` — user's own action items
 - `components/` — grouped by domain (meetings/, recording/, notulen/)
 - `components/ui/` — shadcn auto-generated, do not edit manually
-- `lib/api.ts` — central fetch/axios wrapper for all API calls
+- `lib/api.ts` — axios instance; JWT auto-attached via request interceptor; 401 clears storage + redirects to `/login`
+- `lib/utils.ts` — `cn()` (tailwind merge), `isDateOverdue()` (timezone-safe), `extractApiError()` (parses FastAPI `detail` field)
 - `types/index.ts` — TypeScript types derived from API contract
-- `hooks/useRecording.ts` — upload recording + polling processing status
+- `hooks/` — React Query wrappers: `useRecordingStatus`, `useUploadRecording`, `useDeleteRecording`, `useMyActionItems`, `useUpdateActionItem`
+
+**Frontend state management:** Server state uses `@tanstack/react-query`. Auth token stored in `localStorage` under `access_token` (and mirrored to a cookie so Next.js middleware can read it). User profile cached in `localStorage` under `user_profile` — always parse with `try/catch` since corrupt JSON crashes the main layout.
+
+**React Query cache keys:** `["meeting", id]`, `["recording-status", meetingId]`, `["action-items"]`. When a mutation touches meeting data (e.g. updating an action item), invalidate both `["action-items"]` and `["meeting", meetingId]` — invalidating only one leaves the detail page stale.
+
+**Frontend env var:** Set `NEXT_PUBLIC_API_URL` to override the default API base (`http://localhost:8000/api/v1`).
 
 ---
 
@@ -182,6 +202,15 @@ All ML functions must raise specific exceptions (not silent fail) and return Pyd
 - Branch naming: `feature/<role>-<name>` (e.g. `feature/backend-upload-endpoint`)
 - Never push directly to `main`; PR with at least 1 reviewer
 - `main` must always be deployable
+
+---
+
+## Known Schema Gaps
+
+These are silent mismatches between frontend and backend — no error is thrown, but the operation has no effect:
+
+- **`PATCH /meetings/:id`** — `MeetingUpdate` schema (`schemas/meeting.py`) does not include `participant_emails`, so adding/removing participants via the Edit Meeting page does not persist to the database.
+- **`PATCH /action-items/:id`** — `ActionItemUpdateRequest` (`schemas/action_item.py`) **does** include `assignee_participant_id` (added in PR #8). Backend model `ActionItem` assigns via `assignee_participant_id` FK to `meeting_participants.id`, not directly to `users.id`.
 
 ---
 

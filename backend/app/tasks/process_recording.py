@@ -14,6 +14,7 @@ from app.models.action_item import ActionItem
 from app.models.meeting import Meeting
 from app.services.storage import get_minio_client
 from app.services.email import send_notulen_email
+from app.services.pdf import generate_notulen_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -162,28 +163,32 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         # Step 9: mark extract done, start sending email
         _set_step(db, recording, "extract", ProcessingStatus.sending_email)
 
-        # Step 10: send notulen email to all participants
+        # Step 10: generate PDF satu kali, kirim ke semua peserta yang punya invitation token
         db_action_items = db.query(ActionItem).filter(
             ActionItem.meeting_id == uuid.UUID(meeting_id)
         ).all()
 
+        db.refresh(meeting)
+        organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"
+        pdf_bytes = generate_notulen_pdf(
+            meeting=meeting,
+            organizer_name=organizer_name,
+            participants=participants,
+            summary=summary_obj,
+            action_items=db_action_items,
+        )
+
         for p in participants:
-            p_action_items = [
-                {
-                    "task": ai.task,
-                    "due_date": ai.due_date.isoformat() if ai.due_date else None,
-                }
-                for ai in db_action_items
-                if ai.assignee_participant_id == p.id
-            ]
+            if not p.invitation or not p.invitation.token:
+                continue
+            checkin_url = f"{settings.APP_BASE_URL}/check-in/{p.invitation.token}"
             send_notulen_email(
                 recipient_email=p.email,
                 recipient_name=p.user.name if p.user else p.email,
                 meeting_title=meeting.title,
                 scheduled_at=meeting.scheduled_at,
-                summary_tldr=summary_obj.tldr,
-                decisions=summary_obj.decisions,
-                action_items=p_action_items,
+                checkin_url=checkin_url,
+                pdf_bytes=pdf_bytes,
                 meeting_id=uuid.UUID(meeting_id),
                 db=db,
             )

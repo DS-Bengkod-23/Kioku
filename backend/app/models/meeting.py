@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, Text, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, DateTime, Text, ForeignKey, Enum as SAEnum, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 import enum
@@ -31,6 +31,10 @@ class Meeting(Base):
     status: Mapped[MeetingStatus] = mapped_column(
         SAEnum(MeetingStatus, name="meetingstatus"), default=MeetingStatus.scheduled, nullable=False
     )
+    attendance_locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

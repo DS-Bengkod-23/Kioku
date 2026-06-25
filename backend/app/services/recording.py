@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
 
@@ -36,7 +37,7 @@ def _require_organizer(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
 async def upload_recording(
     db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, file: UploadFile
 ) -> Recording:
-    _get_meeting_or_404(db, meeting_id)
+    meeting = _get_meeting_or_404(db, meeting_id)
     _require_organizer(db, meeting_id, user_id)
 
     allowed = settings.allowed_audio_formats_list
@@ -65,6 +66,10 @@ async def upload_recording(
         processing_status=ProcessingStatus.queued,
     )
     db.add(recording)
+
+    # Lock attendance segera saat recording diupload — sinyal meeting sudah selesai
+    meeting.attendance_locked_at = datetime.now(timezone.utc)
+
     db.commit()
     db.refresh(recording)
 
