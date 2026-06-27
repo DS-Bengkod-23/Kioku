@@ -178,7 +178,7 @@ export default function MeetingDetailPage() {
       id: item.id,
       task: item.task,
       assignee: item.assignee?.name || "Belum di-assign",
-      assigneeId: item.assignee?.id ?? null,
+      assigneeId: item.assignee_participant_id ?? null,
       dueDate: item.due_date ?? undefined,
       status,
       priority: getActionItemPriority(item.due_date),
