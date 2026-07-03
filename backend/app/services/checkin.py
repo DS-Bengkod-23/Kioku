@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -8,6 +8,8 @@ from app.models.meeting import Meeting
 from app.models.participant import MeetingParticipant, ParticipantRole
 from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.action_item import ActionItem, ActionItemStatus
+from app.models.summary import Summary as SummaryModel
+from app.services.pdf import generate_notulen_pdf
 from app.schemas.checkin import (
     CheckinPageResponse,
     CheckinConfirmResponse,
@@ -16,11 +18,13 @@ from app.schemas.checkin import (
 
 
 def _resolve_token(db: Session, token: str):
+    # Token portal tidak pernah expire by design (lihat plan/plan-checkin-portal.md) —
+    # peserta harus bisa akses notulen & action items kapan pun. Aksi yang sensitif
+    # terhadap waktu (check-in baru) tetap dijaga terpisah lewat attendance_locked
+    # dan pengecekan meeting_end di confirm_checkin, bukan lewat expiry token ini.
     invitation = db.query(Invitation).filter(Invitation.token == token).first()
     if not invitation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token tidak valid atau tidak ditemukan")
-    if invitation.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token sudah expired")
     participant = db.query(MeetingParticipant).filter(MeetingParticipant.id == invitation.participant_id).first()
     if not participant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Participant tidak ditemukan")
@@ -47,9 +51,13 @@ def get_checkin_info(db: Session, token: str) -> CheckinPageResponse:
         processing_status = ps.value if hasattr(ps, 'value') else ps
 
     summary = None
-    if meeting.summary:
-        s = meeting.summary
-        summary = {"tldr": s.tldr, "decisions": s.decisions, "topics": s.topics}
+    summary_obj = db.query(SummaryModel).filter(SummaryModel.meeting_id == meeting.id).first()
+    if summary_obj:
+        summary = {
+            "tldr": summary_obj.tldr,
+            "decisions": summary_obj.decisions or [],
+            "topics": summary_obj.topics or [],
+        }
 
     action_items = [
         {
@@ -59,7 +67,14 @@ def get_checkin_info(db: Session, token: str) -> CheckinPageResponse:
             "status": ai.status.value if hasattr(ai.status, 'value') else ai.status,
         }
         for ai in meeting.action_items
+        if ai.assignee_participant_id == participant.id
     ]
+
+    # Samakan dengan pengecekan di confirm_checkin() supaya halaman check-in
+    # menampilkan status "ditutup" yang benar SEBELUM peserta klik tombol,
+    # bukan cuma setelah submit ditolak backend.
+    meeting_end = meeting.scheduled_at + timedelta(minutes=meeting.duration_minutes)
+    time_expired = datetime.now(timezone.utc) > meeting_end
 
     return CheckinPageResponse(
         meeting_id=meeting.id,
@@ -68,7 +83,7 @@ def get_checkin_info(db: Session, token: str) -> CheckinPageResponse:
         location=meeting.location,
         participant_name=name,
         already_checked_in=already_checked_in,
-        attendance_locked=meeting.attendance_locked,
+        attendance_locked=meeting.attendance_locked or time_expired,
         processing_status=processing_status,
         summary=summary,
         action_items=action_items,
@@ -84,6 +99,13 @@ def confirm_checkin(db: Session, token: str) -> CheckinConfirmResponse:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Absensi sudah ditutup untuk rapat ini",
+        )
+
+    meeting_end = meeting.scheduled_at + timedelta(minutes=meeting.duration_minutes)
+    if datetime.now(timezone.utc) > meeting_end:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Waktu absensi sudah berakhir",
         )
 
     if invitation.used_at is not None:
@@ -167,73 +189,20 @@ def update_checkin_action_item(
 
 
 def get_checkin_notulen_pdf(db: Session, token: str) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-    from reportlab.lib import colors
-    import io
-
     _, participant, meeting = _resolve_token(db, token)
 
     if not meeting.summary:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notulen belum tersedia")
 
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-    styles = getSampleStyleSheet()
-    h1 = styles["h1"]
-    h2 = ParagraphStyle("h2", parent=styles["h2"], spaceAfter=4)
-    body = styles["BodyText"]
-    elems = []
-
-    elems.append(Paragraph("NOTULEN RAPAT", h1))
-    elems.append(Spacer(1, 0.3*cm))
-    elems.append(Paragraph(meeting.title, styles["h2"]))
-    scheduled = meeting.scheduled_at.strftime("%d %B %Y, %H:%M")
-    elems.append(Paragraph(f"Tanggal: {scheduled}", body))
-    if meeting.location:
-        elems.append(Paragraph(f"Lokasi: {meeting.location}", body))
-    elems.append(Spacer(1, 0.5*cm))
-
-    s = meeting.summary
-    elems.append(Paragraph("Ringkasan", h2))
-    elems.append(Paragraph(s.tldr, body))
-    elems.append(Spacer(1, 0.4*cm))
-
-    if s.decisions:
-        elems.append(Paragraph("Keputusan", h2))
-        for d in s.decisions:
-            elems.append(Paragraph(f"• {d}", body))
-        elems.append(Spacer(1, 0.4*cm))
-
-    if s.topics:
-        elems.append(Paragraph("Topik Dibahas", h2))
-        for t in s.topics:
-            elems.append(Paragraph(f"• {t}", body))
-        elems.append(Spacer(1, 0.4*cm))
-
-    if meeting.action_items:
-        elems.append(Paragraph("Action Items", h2))
-        table_data = [["Tugas", "Tenggat", "Status"]]
-        for ai in meeting.action_items:
-            table_data.append([
-                ai.task,
-                ai.due_date.strftime("%d %b %Y") if ai.due_date else "-",
-                ai.status.value if hasattr(ai.status, 'value') else ai.status,
-            ])
-        t = Table(table_data, colWidths=[10*cm, 3*cm, 3*cm])
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-        ]))
-        elems.append(t)
-
-    doc.build(elems)
-    return buf.getvalue()
+    organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"
+    return generate_notulen_pdf(
+        meeting=meeting,
+        organizer_name=organizer_name,
+        participants=meeting.participants,
+        summary=meeting.summary,
+        action_items=meeting.action_items or [],
+        viewer_participant_id=participant.id,
+    )
 
 
 def update_attendance_manual(

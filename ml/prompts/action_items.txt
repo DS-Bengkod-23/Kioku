@@ -9,7 +9,7 @@ Ekstrak semua action item dari transkrip di atas. Kembalikan HANYA JSON array se
   {{
     "task": "deskripsi tugas yang harus dikerjakan",
     "assignee_name": "nama orang dari daftar peserta (atau null jika tidak disebutkan)",
-    "due_date_text": "deadline jika disebutkan, atau null"
+    "due_date_text": "deadline jika disebutkan, dalam format YYYY-MM-DD jika bisa dihitung dari konteks rapat, atau null jika tidak disebutkan"
   }}
 ]
 

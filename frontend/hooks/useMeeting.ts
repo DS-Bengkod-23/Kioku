@@ -4,6 +4,7 @@ import {
   updateMeeting,
   deleteMeeting,
   updateAttendance,
+  completeMeeting,
 } from "@/lib/api";
 
 export function useMeeting(id: string) {
@@ -19,6 +20,17 @@ export function useUpdateMeeting(id: string) {
   return useMutation({
     mutationFn: (data: Parameters<typeof updateMeeting>[1]) =>
       updateMeeting(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meeting", id] });
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+}
+
+export function useCompleteMeeting(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => completeMeeting(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", id] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });

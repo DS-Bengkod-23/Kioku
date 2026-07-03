@@ -1,12 +1,13 @@
 import uuid
 import logging
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 from sqlalchemy import or_
 from app.config import settings
 from app.models.meeting import Meeting, MeetingStatus
 from app.models.participant import MeetingParticipant, ParticipantRole
+from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.user import User
 from app.models.summary import Summary
 from app.models.action_item import ActionItem
@@ -86,7 +87,10 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
 
 
 def get_meetings(db: Session, user_id: uuid.UUID, page: int = 1, limit: int = 10, status: Optional[str] = None) -> MeetingListResponse:
-    query = db.query(Meeting).join(MeetingParticipant, Meeting.id == MeetingParticipant.meeting_id).filter(
+    query = db.query(Meeting).join(MeetingParticipant, Meeting.id == MeetingParticipant.meeting_id).options(
+        joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
+        joinedload(Meeting.recording),
+    ).filter(
         MeetingParticipant.user_id == user_id
     ).distinct()
 
@@ -107,7 +111,23 @@ def get_meetings(db: Session, user_id: uuid.UUID, page: int = 1, limit: int = 10
 
 
 def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    meeting = (
+        db.query(Meeting)
+        .options(
+            joinedload(Meeting.organizer),
+            joinedload(Meeting.participants).joinedload(MeetingParticipant.user),
+            joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
+            joinedload(Meeting.participants).joinedload(MeetingParticipant.invitation),
+            joinedload(Meeting.action_items)
+            .joinedload(ActionItem.assignee_participant)
+            .joinedload(MeetingParticipant.user),
+            joinedload(Meeting.recording),
+            joinedload(Meeting.transcript),
+            joinedload(Meeting.summary),
+        )
+        .filter(Meeting.id == meeting_id)
+        .first()
+    )
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
         
@@ -190,6 +210,35 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
     return meeting
 
 
+def complete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting tidak ditemukan")
+    if meeting.organizer_id != user_id:
+        raise HTTPException(status_code=403, detail="Hanya organizer yang bisa menyelesaikan rapat")
+    if meeting.status == MeetingStatus.completed:
+        raise HTTPException(status_code=400, detail="Rapat sudah selesai")
+
+    meeting.status = MeetingStatus.completed
+    meeting.attendance_locked = True
+
+    for p in meeting.participants:
+        if p.role == ParticipantRole.peserta:
+            if p.attendance:
+                if p.attendance.status == AttendanceStatus.pending:
+                    p.attendance.status = AttendanceStatus.tidak_hadir
+            else:
+                db.add(Attendance(
+                    participant_id=p.id,
+                    status=AttendanceStatus.tidak_hadir,
+                    method=AttendanceMethod.manual,
+                ))
+
+    db.commit()
+    db.refresh(meeting)
+    return meeting
+
+
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
@@ -209,6 +258,9 @@ def search_meetings(db: Session, user_id: uuid.UUID, query: str, page: int = 1, 
         Summary, Meeting.id == Summary.meeting_id
     ).outerjoin(
         ActionItem, Meeting.id == ActionItem.meeting_id
+    ).options(
+        joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
+        joinedload(Meeting.recording),
     ).filter(
         MeetingParticipant.user_id == user_id
     )

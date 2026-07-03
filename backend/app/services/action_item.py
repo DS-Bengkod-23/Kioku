@@ -5,7 +5,34 @@ from fastapi import HTTPException
 from app.models.action_item import ActionItem, ActionItemStatus
 from app.models.meeting import Meeting
 from app.models.participant import MeetingParticipant
-from app.schemas.action_item import ActionItemUpdateRequest
+from app.schemas.action_item import ActionItemUpdateRequest, ActionItemCreateRequest
+
+def create_action_item(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data: ActionItemCreateRequest) -> ActionItem:
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting.organizer_id != user_id:
+        raise HTTPException(status_code=403, detail="Hanya organizer yang bisa menambahkan action item")
+
+    if data.assignee_participant_id is not None:
+        participant = db.query(MeetingParticipant).filter(
+            MeetingParticipant.id == data.assignee_participant_id,
+            MeetingParticipant.meeting_id == meeting.id,
+        ).first()
+        if not participant:
+            raise HTTPException(status_code=400, detail="Participant bukan anggota rapat ini")
+
+    action_item = ActionItem(
+        meeting_id=meeting_id,
+        task=data.task,
+        assignee_participant_id=data.assignee_participant_id,
+        due_date=data.due_date,
+    )
+    db.add(action_item)
+    db.commit()
+    db.refresh(action_item)
+    return action_item
 
 def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUID, data: ActionItemUpdateRequest) -> ActionItem:
     action_item = db.query(ActionItem).filter(ActionItem.id == action_item_id).first()

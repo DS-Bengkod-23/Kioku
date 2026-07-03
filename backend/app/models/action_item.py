@@ -12,6 +12,11 @@ class ActionItemStatus(str, enum.Enum):
     done = "done"
 
 
+class ActionItemSource(str, enum.Enum):
+    ai = "ai"
+    manual = "manual"
+
+
 class ActionItem(Base):
     __tablename__ = "action_items"
 
@@ -31,6 +36,11 @@ class ActionItem(Base):
     status: Mapped[ActionItemStatus] = mapped_column(
         SAEnum(ActionItemStatus, name="actionitemstatus"),
         default=ActionItemStatus.open,
+        nullable=False,
+    )
+    source: Mapped[ActionItemSource] = mapped_column(
+        SAEnum(ActionItemSource, name="actionitemsource"),
+        default=ActionItemSource.manual,
         nullable=False,
     )
 

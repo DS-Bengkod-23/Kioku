@@ -90,118 +90,58 @@ flowchart TD
 
 ## Prerequisites
 
-Sebelum menjalankan, pastikan sudah install:
-
+Wajib untuk Quick Start (full Docker):
 - [Docker + Docker Compose](https://docs.docker.com/get-docker/)
-- Python 3.11+ (untuk mode hybrid/lokal)
-- Node.js 20+ (untuk mode hybrid/lokal)
-- API Key salah satu LLM provider (pilih salah satu):
-  - **OpenAI API Key** — rekomendasi, tidak perlu GPU
-  - **Ollama** — gratis, butuh GPU dan RAM ≥ 16GB
+- API Key salah satu LLM provider — **OpenAI API Key** (rekomendasi, tidak perlu GPU) atau **Ollama** (gratis, butuh GPU + RAM ≥ 16GB, lihat [Opsi LLM Provider](#opsi-llm-provider))
+
+Tambahan, hanya kalau mau mode development hot-reload (lihat [docs/DOCKER_WORKFLOW.md](docs/DOCKER_WORKFLOW.md)):
+- Python 3.11+
+- Node.js 20+
 
 ---
 
-## Cara Menjalankan
+## Quick Start
 
-Ada dua cara menjalankan MeetMate. Pilih sesuai kebutuhan:
+Semua service (frontend, backend, ML worker, database) jalan otomatis di Docker — tidak perlu install Python/Node.js.
 
----
-
-### Opsi A: Full Docker (Recommended untuk Demo / Testing Final)
-
-Semua service jalan di Docker. Cukup satu perintah.
-
-**1. Clone & setup env**
 ```bash
 git clone https://github.com/<your-username>/meetmate.git
 cd meetmate
-cp .env.example .env
+make init              # bikin .env dari .env.example
 ```
 
-**2. Isi `.env`** — minimal wajib diisi:
+Isi `OPENAI_API_KEY` dan `HF_TOKEN` di `.env` yang baru dibuat:
 ```env
-# Pilih LLM provider
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...       # jika pakai OpenAI
-HF_TOKEN=hf_...             # untuk download model pyannote (Hugging Face)
+OPENAI_API_KEY=sk-...       # dari platform.openai.com
+HF_TOKEN=hf_...             # dari huggingface.co, untuk download model pyannote
 ```
+> Untuk `HF_TOKEN`: daftar di [huggingface.co](https://huggingface.co) → Settings → Access Tokens, lalu accept license model di [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) dan [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0).
 
-> Untuk mendapatkan `HF_TOKEN`: daftar di [huggingface.co](https://huggingface.co) → Settings → Access Tokens.
-> Lalu accept license model di:
-> - https://huggingface.co/pyannote/speaker-diarization-3.1
-> - https://huggingface.co/pyannote/segmentation-3.0
-
-**3. Jalankan semua service**
+Lalu jalankan:
 ```bash
-make up
+make up && make migrate
 ```
+> Tanpa `make`? `cp .env.example .env` lalu `docker compose up -d && docker compose exec backend-api alembic upgrade head`.
 
-**4. Jalankan migrasi database**
-```bash
-make migrate
-```
-
-**5. Buka aplikasi**
+Buka **http://localhost:3000**.
 
 | Service | URL |
 |---|---|
 | Aplikasi | http://localhost:3000 |
 | Backend API Docs | http://localhost:8000/docs |
-| MinIO Console | http://localhost:9001 |
 | Mailhog (email preview) | http://localhost:8025 |
+| MinIO Console | http://localhost:9001 |
 | Adminer (DB viewer) | http://localhost:8080 |
 
-> Jika ada perubahan kode, jalankan `make build` untuk rebuild image.
+Ganti dependency (`requirements.txt`/`package.json`)? Pakai `make build` (atau `docker compose up --build -d`) alih-alih `make up`. Perubahan kode Python/JS biasa tidak perlu rebuild.
+
+**Mau hot-reload untuk development aktif** (kode langsung kepakai tanpa rebuild Docker)? Lihat [Mode Development](docs/DOCKER_WORKFLOW.md#mode-development) di `docs/DOCKER_WORKFLOW.md`.
 
 ---
 
-### Opsi B: Hybrid (Recommended untuk Development)
+## Opsi LLM Provider
 
-Infrastruktur pakai Docker, aplikasi jalankan manual. Hot reload aktif — perubahan kode langsung terlihat tanpa rebuild.
-
-**1. Jalankan infrastruktur saja**
-```bash
-docker compose up -d postgres redis minio mailhog
-```
-
-**2. Jalankan Backend API** (terminal baru, dari folder `backend/`)
-```bash
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-```
-
-**3. Build dan jalankan Celery Worker via Docker** (pertama kali build ~10-15 menit)
-```bash
-docker compose build celery-worker
-docker compose up -d --no-deps celery-worker
-```
-
-> Worker dijalankan via Docker (bukan conda lokal) untuk menghindari masalah kompatibilitas DLL di Windows.
-> Jika ada perubahan kode di `ml/` atau `ml/requirements.txt`, jalankan ulang kedua command di atas.
-
-> Untuk mendapatkan `HF_TOKEN` dan accept license pyannote — lihat langkah yang sama di Opsi A di atas.
-> Model Whisper dan pyannote akan didownload otomatis saat pertama kali memproses recording (~3-4GB).
-
-**4. Jalankan Frontend** (terminal baru, dari folder `frontend/`)
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-**5. Setup MinIO bucket** (hanya perlu dilakukan sekali)
-
-Buka http://localhost:9001 → login dengan `minioadmin` / `minioadmin` → buat bucket baru bernama `meetmate-recordings`.
-
-**6. Buka** `http://localhost:3000`
-
----
-
-### Konfigurasi LLM Provider
-
-Edit file `.env` untuk memilih provider:
+Edit `.env` untuk memilih provider:
 
 ```env
 # Pakai OpenAI (tidak butuh GPU, rekomendasi untuk laptop biasa)
@@ -215,13 +155,13 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:7b
 ```
 
-Jika pakai Ollama, jalankan dulu di host machine:
+Jika pakai Ollama, jalankan dulu di host machine (bukan di Docker — supaya bisa akses GPU langsung):
 ```bash
 ollama pull qwen2.5:7b
 ollama serve
 ```
 
-Untuk panduan Docker lebih detail, baca [docs/DOCKER_WORKFLOW.md](docs/DOCKER_WORKFLOW.md).
+Untuk panduan Docker lebih detail (termasuk mode development/hybrid), baca [docs/DOCKER_WORKFLOW.md](docs/DOCKER_WORKFLOW.md).
 
 ---
 

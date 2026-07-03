@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from fpdf import FPDF
 
@@ -6,6 +7,8 @@ from app.models.summary import Summary
 from app.models.action_item import ActionItem
 from app.models.participant import MeetingParticipant
 from app.models.attendance import AttendanceStatus
+
+_FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
 LOCALE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 LOCALE_MONTHS = [
@@ -43,15 +46,25 @@ def generate_notulen_pdf(
     participants: list[MeetingParticipant],
     summary: Summary,
     action_items: list[ActionItem],
+    viewer_participant_id: uuid.UUID | None = None,
 ) -> bytes:
+    # Peserta (bukan organizer) cuma boleh lihat action item miliknya sendiri di
+    # notulen — samakan dengan filter yang sudah dipakai get_checkin_info().
+    if viewer_participant_id is not None:
+        action_items = [
+            ai for ai in action_items if ai.assignee_participant_id == viewer_participant_id
+        ]
+
     pdf = FPDF()
+    pdf.add_font("DejaVuSans", "",  f"{_FONT_DIR}/DejaVuSans.ttf")
+    pdf.add_font("DejaVuSans", "B", f"{_FONT_DIR}/DejaVuSans-Bold.ttf")
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
     # ── HEADER ──────────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_font("DejaVuSans", "B", 16)
     pdf.cell(0, 8, "NOTULEN RAPAT", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     pdf.cell(0, 6, "MeetMate", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
     pdf.set_line_width(0.5)
@@ -59,24 +72,24 @@ def generate_notulen_pdf(
     pdf.ln(6)
 
     # ── INFO RAPAT ────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("DejaVuSans", "B", 10)
     pdf.cell(35, 6, "Judul")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, f": {meeting.title}")
+    pdf.set_font("DejaVuSans", "", 10)
+    pdf.multi_cell(0, 6, f": {meeting.title}", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("DejaVuSans", "B", 10)
     pdf.cell(35, 6, "Tanggal")
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     pdf.cell(0, 6, f": {_fmt_date(meeting.scheduled_at)}", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("DejaVuSans", "B", 10)
     pdf.cell(35, 6, "Lokasi")
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     pdf.cell(0, 6, f": {meeting.location or '-'}", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_font("DejaVuSans", "B", 10)
     pdf.cell(35, 6, "Dipimpin")
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     pdf.cell(0, 6, f": {organizer_name}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(4)
@@ -84,7 +97,7 @@ def generate_notulen_pdf(
     pdf.ln(6)
 
     # ── PESERTA ───────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_font("DejaVuSans", "B", 11)
     pdf.cell(0, 7, "PESERTA", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
@@ -92,13 +105,13 @@ def generate_notulen_pdf(
     col_name = 100
     col_status = 40
 
-    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_font("DejaVuSans", "B", 9)
     pdf.set_fill_color(230, 230, 230)
     pdf.cell(col_no, 6, "No", border=1, fill=True)
     pdf.cell(col_name, 6, "Nama", border=1, fill=True)
     pdf.cell(col_status, 6, "Status", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("DejaVuSans", "", 9)
     for i, p in enumerate(participants, start=1):
         name = p.user.name if p.user else p.email
         status_label = _attendance_label(p)
@@ -111,11 +124,11 @@ def generate_notulen_pdf(
     pdf.ln(6)
 
     # ── RINGKASAN ─────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_font("DejaVuSans", "B", 11)
     pdf.cell(0, 7, "RINGKASAN", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, summary.tldr or "-")
+    pdf.set_font("DejaVuSans", "", 10)
+    pdf.multi_cell(0, 6, summary.tldr or "-", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(4)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
@@ -123,13 +136,13 @@ def generate_notulen_pdf(
 
     # ── KEPUTUSAN ─────────────────────────────────────────────────────────
     decisions = summary.decisions or []
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_font("DejaVuSans", "B", 11)
     pdf.cell(0, 7, "KEPUTUSAN", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     if decisions:
         for idx, d in enumerate(decisions, start=1):
-            pdf.multi_cell(0, 6, f"{idx}. {d}")
+            pdf.multi_cell(0, 6, f"{idx}. {d}", new_x="LMARGIN", new_y="NEXT")
     else:
         pdf.cell(0, 6, "-", new_x="LMARGIN", new_y="NEXT")
 
@@ -139,13 +152,13 @@ def generate_notulen_pdf(
 
     # ── TOPIK ─────────────────────────────────────────────────────────────
     topics = summary.topics or []
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_font("DejaVuSans", "B", 11)
     pdf.cell(0, 7, "TOPIK YANG DIBAHAS", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "", 10)
+    pdf.set_font("DejaVuSans", "", 10)
     if topics:
         for t in topics:
-            pdf.multi_cell(0, 6, f"  •  {t}")
+            pdf.multi_cell(0, 6, f"  •  {t}", new_x="LMARGIN", new_y="NEXT")
     else:
         pdf.cell(0, 6, "-", new_x="LMARGIN", new_y="NEXT")
 
@@ -154,7 +167,7 @@ def generate_notulen_pdf(
     pdf.ln(6)
 
     # ── ACTION ITEMS ──────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_font("DejaVuSans", "B", 11)
     pdf.cell(0, 7, "ACTION ITEMS", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
@@ -163,14 +176,14 @@ def generate_notulen_pdf(
     col_ai_pic = 50
     col_ai_due = 40
 
-    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_font("DejaVuSans", "B", 9)
     pdf.set_fill_color(230, 230, 230)
     pdf.cell(col_ai_no, 6, "No", border=1, fill=True)
     pdf.cell(col_ai_task, 6, "Tugas", border=1, fill=True)
     pdf.cell(col_ai_pic, 6, "PIC", border=1, fill=True)
     pdf.cell(col_ai_due, 6, "Tenggat", border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("DejaVuSans", "", 9)
     if action_items:
         for i, ai in enumerate(action_items, start=1):
             pic = "-"
@@ -188,7 +201,7 @@ def generate_notulen_pdf(
     pdf.ln(8)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
     pdf.ln(4)
-    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_font("DejaVuSans", "", 8)
     timestamp = datetime.now(timezone.utc).strftime("%d %b %Y %H:%M UTC")
     pdf.cell(0, 5, f"Dibuat otomatis oleh MeetMate  ·  {timestamp}", align="C")
 

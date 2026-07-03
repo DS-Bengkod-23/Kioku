@@ -14,7 +14,9 @@ import {
   Lock,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getCheckin, confirmCheckin, updateCheckinActionItem, downloadCheckinNotulenPdf } from "@/lib/api";
+import { extractApiError } from "@/lib/utils";
 
 interface CheckInPageProps {
   params: { token: string };
@@ -87,8 +89,17 @@ export default function CheckInPage({ params }: CheckInPageProps) {
     try {
       await confirmCheckin(params.token);
       setCheckedIn(true);
-    } catch {
-      setTokenError(true);
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        // Token benar-benar tidak ditemukan/invalid — baru tampilkan halaman error penuh.
+        setTokenError(true);
+      } else {
+        // Mis. 403 "Absensi sudah ditutup"/"Waktu absensi sudah berakhir" —
+        // link-nya tetap valid, cuma presensinya sudah tertutup. Jangan hancurkan
+        // seluruh halaman, cukup tampilkan pesannya dan perbarui status lokal.
+        toast.error(extractApiError(err, "Gagal melakukan check-in. Coba lagi."));
+        setMeetingInfo((prev) => (prev ? { ...prev, attendance_locked: true } : prev));
+      }
     } finally {
       setLoading(false);
     }

@@ -59,6 +59,52 @@ make logs-api
 
 ---
 
+## Mode Development
+
+Untuk development aktif, mode full Docker di atas kurang nyaman karena tiap ganti kode Python/JS (yang mengandung dependency baru) perlu rebuild. Mode Hybrid ini menjalankan infrastruktur + Celery Worker via Docker, tapi Backend API dan Frontend dijalankan manual di host — jadi hot-reload aktif dan perubahan kode langsung terlihat tanpa rebuild.
+
+**1. Jalankan infrastruktur + Celery Worker** (pertama kali build ~10-15 menit)
+```bash
+# Pakai make (Linux/Mac/Git Bash)
+make infra
+
+# Tanpa make (Windows CMD/PowerShell)
+docker compose up -d postgres redis minio mailhog
+docker compose up --build -d --no-deps celery-worker
+```
+Perintah ini menjalankan postgres, redis, minio, mailhog, sekaligus build dan start celery-worker dalam satu langkah. Worker tetap dijalankan via Docker (bukan lokal) untuk menghindari masalah kompatibilitas DLL di Windows.
+
+Kalau setelah ini ada perubahan di `ml/` atau `backend/requirements.txt`, jalankan:
+```bash
+make build-worker   # pakai make
+# atau tanpa make:
+docker compose build celery-worker
+docker compose up -d --no-deps celery-worker
+```
+
+> Butuh `HF_TOKEN` untuk pyannote — lihat [Quick Start di README](../README.md#quick-start). Model Whisper dan pyannote akan didownload otomatis saat pertama kali memproses recording (~3-4GB).
+
+**2. Jalankan Backend API** (terminal baru, dari folder `backend/`)
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+**3. Jalankan Frontend** (terminal baru, dari folder `frontend/`)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**4. Buka** `http://localhost:3000`
+
+> Bucket MinIO (`meetmate-recordings` secara default) dibuat otomatis oleh backend saat pertama kali dibutuhkan — tidak perlu setup manual lewat MinIO Console.
+
+---
+
 ## Pre-Commit Hook (Opsional tapi Direkomendasikan)
 Agar kode Anda otomatis diformat oleh `ruff` sebelum di-push ke Github:
 
