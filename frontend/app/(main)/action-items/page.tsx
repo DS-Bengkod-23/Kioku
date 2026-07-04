@@ -15,6 +15,18 @@ import {
 } from "lucide-react";
 import { cn, isDateOverdue } from "@/lib/utils";
 import { useMyActionItems, useUpdateActionItem } from "@/hooks/useActionItems";
+import type { MyActionItem } from "@/types";
+
+type UITaskStatus = "Terlambat" | "Aktif" | "Selesai";
+
+interface UITask {
+  id: string;
+  task: string;
+  meetingTitle: string;
+  assignee: string;
+  dueDate?: string;
+  status: UITaskStatus;
+}
 
 export default function ActionItemsPage() {
   const router = useRouter();
@@ -27,12 +39,12 @@ export default function ActionItemsPage() {
   const { data, isLoading, isError } = useMyActionItems();
   const { mutate: updateActionItem } = useUpdateActionItem();
 
-  const rawItems = data?.items ?? [];
+  const rawItems: MyActionItem[] = data?.items ?? [];
 
   // Map API data → format UI
-  const tasks = rawItems.map((item: any) => {
-    const isOverdue = item.due_date && isDateOverdue(item.due_date);
-    const status =
+  const tasks: UITask[] = rawItems.map((item) => {
+    const isOverdue = !!item.due_date && isDateOverdue(item.due_date);
+    const status: UITaskStatus =
       item.status === "done" ? "Selesai" :
       isOverdue ? "Terlambat" : "Aktif";
     return {
@@ -40,13 +52,13 @@ export default function ActionItemsPage() {
       task: item.task,
       meetingTitle: item.meeting?.title ?? "–",
       assignee: "Saya",
-      dueDate: item.due_date ?? "2099-12-31",
+      dueDate: item.due_date ?? undefined,
       status,
     };
   });
 
   const handleToggleComplete = (id: string) => {
-    const item = tasks.find((t: any) => t.id === id);
+    const item = tasks.find((t) => t.id === id);
     if (!item) return;
     const newStatus = item.status === "Selesai" ? "open" : "done";
     updateActionItem({ id, status: newStatus });
@@ -61,12 +73,12 @@ export default function ActionItemsPage() {
 
   const stats = useMemo(() => ({
     total: tasks.length,
-    aktif: tasks.filter((t: any) => t.status !== "Selesai").length,
-    selesai: tasks.filter((t: any) => t.status === "Selesai").length,
+    aktif: tasks.filter((t) => t.status !== "Selesai").length,
+    selesai: tasks.filter((t) => t.status === "Selesai").length,
   }), [tasks]);
 
   const filteredTasks = useMemo(() => {
-    const filtered = tasks.filter((task: any) => {
+    const filtered = tasks.filter((task) => {
       const matchesSearch =
         task.task.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.meetingTitle.toLowerCase().includes(searchQuery.toLowerCase());
@@ -74,8 +86,8 @@ export default function ActionItemsPage() {
       if (activeFilter === "Selesai") return matchesSearch && task.status === "Selesai";
       return matchesSearch;
     });
-    return filtered.sort((a: any, b: any) => {
-      const order: Record<string, number> = { Terlambat: 0, Aktif: 1, Selesai: 2 };
+    return filtered.sort((a, b) => {
+      const order: Record<UITaskStatus, number> = { Terlambat: 0, Aktif: 1, Selesai: 2 };
       return (order[a.status] ?? 1) - (order[b.status] ?? 1);
     });
   }, [tasks, searchQuery, activeFilter]);
@@ -152,7 +164,7 @@ export default function ActionItemsPage() {
             ) : isError ? (
               <p className="text-center text-rose-400 py-10 text-sm">Gagal memuat tugas. Pastikan backend sudah berjalan.</p>
             ) : filteredTasks.length > 0 ? (
-              filteredTasks.map((item: any) => (
+              filteredTasks.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => handleToggleComplete(item.id)}
@@ -172,7 +184,9 @@ export default function ActionItemsPage() {
                     </p>
                     <div className="flex flex-wrap gap-3 mt-2 text-[11px] text-slate-500 items-center">
                       <span className="flex items-center gap-1"><Users size={12} /> {item.assignee}</span>
-                      <span className="flex items-center gap-1"><Clock size={12} /> {formatDateDisplay(item.dueDate)}</span>
+                      {item.dueDate && (
+                        <span className="flex items-center gap-1"><Clock size={12} /> {formatDateDisplay(item.dueDate)}</span>
+                      )}
                       <span className="flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded text-blue-600 font-medium">
                         <Video size={11} /> {item.meetingTitle}
                       </span>

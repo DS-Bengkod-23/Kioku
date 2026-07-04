@@ -114,6 +114,11 @@ export const deleteMeeting = async (id: string) => {
   await api.delete(`/meetings/${id}`);
 };
 
+export const completeMeeting = async (id: string) => {
+  const response = await api.patch(`/meetings/${id}/complete`);
+  return response.data;
+};
+
 export const searchMeetings = async (q: string, params?: { page?: number; limit?: number }) => {
   const response = await api.get("/meetings/search", { params: { q, ...params } });
   return response.data;

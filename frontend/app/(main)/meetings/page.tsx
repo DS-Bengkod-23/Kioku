@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useMeetings, useSearchMeetings } from "@/hooks/useMeetings";
 import type { MeetingsParams } from "@/lib/api";
+import type { MeetingListItem } from "@/types";
 
 const STATUS_MAP: Record<string, "Dijadwalkan" | "Selesai" | "Dibatalkan"> = {
   scheduled: "Dijadwalkan",
@@ -67,14 +68,14 @@ export default function MeetingsDashboard() {
   );
   const { data: searchData, isLoading: isSearching } = useSearchMeetings(debouncedQuery);
 
-  const rawItems = debouncedQuery
+  const rawItems: MeetingListItem[] = debouncedQuery
     ? (searchData?.items ?? [])
     : (meetingsData?.items ?? []);
 
   const total = debouncedQuery ? (searchData?.total ?? 0) : (meetingsData?.total ?? 0);
   const totalPages = Math.ceil(total / LIMIT);
 
-  const meetings = rawItems.map((m: any) => ({
+  const meetings = rawItems.map((m) => ({
     id: m.id,
     title: m.title,
     status: STATUS_MAP[m.status] ?? "Dijadwalkan",
@@ -153,7 +154,7 @@ export default function MeetingsDashboard() {
         ) : meetings.length > 0 ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in-0 duration-300">
-              {meetings.map((meeting: any) => (
+              {meetings.map((meeting) => (
                 <MeetingCard key={meeting.id} {...meeting} />
               ))}
             </div>

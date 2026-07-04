@@ -4,13 +4,14 @@ import logging
 from datetime import datetime
 from email import encoders
 from email.mime.base import MIMEBase
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.email_log import EmailLog, EmailType, EmailStatus
-from app.services.qr import generate_qr_base64
+from app.services.qr import generate_qr_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def send_invitation_email(
     checkin_url = f"{settings.APP_BASE_URL}/check-in/{checkin_token}"
     scheduled_str = scheduled_at.strftime("%d %B %Y %H:%M")
     location_str = location or "-"
-    qr_b64 = generate_qr_base64(checkin_url)
+    qr_bytes = generate_qr_bytes(checkin_url)
 
     body_html = f"""<html><body>
 <p>Yth. {recipient_name},</p>
@@ -50,18 +51,22 @@ def send_invitation_email(
 </ul>
 <p>Konfirmasi kehadiran Anda melalui tautan berikut:<br>
 <a href="{checkin_url}">{checkin_url}</a></p>
-<p>Atau scan QR code berikut:</p>
-<img src="data:image/png;base64,{qr_b64}" width="200" height="200" alt="QR Check-in"/>
+<p>Atau scan QR code yang terlampir pada email ini.</p>
 <p>Terima kasih.</p>
 </body></html>"""
 
     status = EmailStatus.sent
     try:
-        msg = MIMEMultipart("alternative")
+        msg = MIMEMultipart("mixed")
         msg["Subject"] = f"Undangan Rapat: {meeting_title}"
         msg["From"] = settings.SMTP_USER or "noreply@meetmate.local"
         msg["To"] = recipient_email
+
         msg.attach(MIMEText(body_html, "html"))
+
+        qr_img = MIMEImage(qr_bytes, "png")
+        qr_img.add_header("Content-Disposition", 'attachment; filename="qr-checkin.png"')
+        msg.attach(qr_img)
 
         with _smtp_connection() as conn:
             conn.sendmail(msg["From"], [recipient_email], msg.as_string())

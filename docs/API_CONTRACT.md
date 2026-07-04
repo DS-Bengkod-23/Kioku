@@ -274,19 +274,32 @@ Hapus file rekaman. Hanya organizer yang bisa. Hapus juga transcript, summary, a
 ## Check-in (Public, No Auth)
 
 ### GET /check-in/:token
-Validasi token, tampilkan info meeting untuk halaman check-in.
+Validasi token, tampilkan info portal peserta (presensi, notulen, action items miliknya). Token tidak pernah expire — portal ini dimaksudkan bisa diakses kapan pun.
 
 **Response 200:**
 ```json
 {
+  "meeting_id": "b3c9d2e1-...-f4a5",
   "meeting_title": "Sprint Planning Week 3",
   "scheduled_at": "2026-06-01T09:00:00",
   "location": "Meeting Room A",
   "participant_name": "Helena",
-  "already_checked_in": false
+  "already_checked_in": false,
+  "attendance_locked": false,
+  "processing_status": "completed",
+  "summary": {
+    "tldr": "Ringkasan singkat rapat...",
+    "decisions": ["Keputusan 1", "Keputusan 2"],
+    "topics": ["Topik A", "Topik B"]
+  },
+  "action_items": [
+    { "id": "...", "task": "Selesaikan wireframe", "due_date": "2026-06-05", "status": "open" }
+  ]
 }
 ```
-**Response 404:** token tidak valid atau expired
+`attendance_locked` sudah menggabungkan status kunci manual (`meeting.attendance_locked`) dan batas waktu dinamis (`scheduled_at + duration_minutes`) — begitu salah satu true, tombol check-in di FE harus dianggap tertutup. `summary`/`processing_status` bisa `null` kalau rekaman belum diupload/belum selesai diproses. `action_items` sudah difilter — hanya action item milik peserta ini.
+
+**Response 404:** token tidak valid/tidak ditemukan
 
 ### POST /check-in/:token/confirm
 Konfirmasi kehadiran peserta.
@@ -299,6 +312,7 @@ Konfirmasi kehadiran peserta.
   "meeting_title": "Sprint Planning Week 3"
 }
 ```
+**Response 403:** presensi sudah ditutup (`"Absensi sudah ditutup untuk rapat ini"`) atau waktu presensi sudah lewat (`"Waktu absensi sudah berakhir"`).
 
 ---
 

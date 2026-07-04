@@ -10,13 +10,19 @@ from app.config import settings
 from app.models.recording import Recording, ProcessingStatus
 from app.models.transcript import Transcript
 from app.models.summary import Summary
-from app.models.action_item import ActionItem
-from app.models.meeting import Meeting
+from app.models.action_item import ActionItem, ActionItemSource
+from app.models.meeting import Meeting, MeetingStatus
 from app.services.storage import get_minio_client
 from app.services.email import send_notulen_email
 from app.services.pdf import generate_notulen_pdf
 
 logger = logging.getLogger(__name__)
+
+
+class MLPipelineError(Exception):
+    """Raised when the ML pipeline itself fails, so Celery records the task as
+    failed instead of succeeded even though we already persisted the failure
+    to the Recording row via _mark_failed()."""
 
 
 def _mark_failed(db, recording: Recording, error_message: str) -> None:
@@ -73,7 +79,7 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         except (NotImplementedError, ImportError) as e:
             logger.error("TRANSCRIBE IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
-            return
+            raise MLPipelineError("Transcribe failed: ML pipeline not yet implemented") from e
 
         # Step 4: mark transcribe done, start diarizing
         _set_step(db, recording, "transcribe", ProcessingStatus.diarizing)
@@ -86,7 +92,7 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         except (NotImplementedError, ImportError) as e:
             logger.error("DIARIZE IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
-            return
+            raise MLPipelineError("Diarize failed: ML pipeline not yet implemented") from e
 
         # Step 6: mark diarize done, start extracting
         _set_step(db, recording, "diarize", ProcessingStatus.extracting)
@@ -111,9 +117,20 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         except (NotImplementedError, ImportError) as e:
             logger.error("EXTRACT IMPORT ERROR: %s", e, exc_info=True)
             _mark_failed(db, recording, "ML pipeline not yet implemented")
-            return
+            raise MLPipelineError("Extract failed: ML pipeline not yet implemented") from e
 
         # Step 8: save Transcript, Summary, ActionItem to DB
+        # Clear any rows left over from a previous crashed attempt so a Celery
+        # retry doesn't hit the unique meeting_id constraint on transcripts/summaries.
+        # Only AI-sourced action items are cleared here — action items an organizer
+        # added manually (POST /meetings/{id}/action-items) must survive reprocessing.
+        db.query(ActionItem).filter(
+            ActionItem.meeting_id == uuid.UUID(meeting_id),
+            ActionItem.source == ActionItemSource.ai,
+        ).delete()
+        db.query(Transcript).filter(Transcript.meeting_id == uuid.UUID(meeting_id)).delete()
+        db.query(Summary).filter(Summary.meeting_id == uuid.UUID(meeting_id)).delete()
+
         transcript_obj = Transcript(
             meeting_id=uuid.UUID(meeting_id),
             segments=[
@@ -143,10 +160,13 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
                 if participant:
                     assignee_id = participant.id
 
-            due = getattr(item, "due_date", None)
-            if isinstance(due, str):
+            # ml.schemas.ActionItem exposes the LLM's due date guess as free text
+            # (due_date_text) — only keep it if it happens to parse as an ISO date.
+            due_text = getattr(item, "due_date_text", None)
+            due = None
+            if isinstance(due_text, str):
                 try:
-                    due = date.fromisoformat(due)
+                    due = date.fromisoformat(due_text.strip())
                 except ValueError:
                     due = None
 
@@ -155,6 +175,7 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
                 task=item.task,
                 assignee_participant_id=assignee_id,
                 due_date=due,
+                source=ActionItemSource.ai,
             ))
 
         db.commit()
@@ -193,7 +214,11 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
                 db=db,
             )
 
-        # Step 11: all done
+        # Step 11: auto-lock attendance after notulen distributed
+        meeting.attendance_locked = True
+        meeting.status = MeetingStatus.completed
+        db.commit()
+
         _set_step(db, recording, "send_email", ProcessingStatus.completed)
 
     except Exception as exc:

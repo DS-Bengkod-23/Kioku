@@ -2,39 +2,62 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { X, Plus, Type, MapPin, Calendar, FileText, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useCreateMeeting } from "@/hooks/useMeetings";
+import { useUpdateMeeting } from "@/hooks/useMeeting";
 import { FormError } from "@/components/ui/form-error";
 import { extractApiError } from "@/lib/utils";
 
-export default function MeetingForm() {
+export interface MeetingFormInitialData {
+  title: string;
+  location: string;
+  dateTime: string;
+  description: string;
+  agenda: string;
+  durationHours: number;
+  durationMins: number;
+  participants: string[];
+}
+
+interface MeetingFormProps {
+  mode?: "create" | "edit";
+  meetingId?: string;
+  initialData?: MeetingFormInitialData;
+}
+
+export default function MeetingForm({ mode = "create", meetingId, initialData }: MeetingFormProps) {
   const router = useRouter();
-  const { mutateAsync: createMeeting, isPending } = useCreateMeeting();
+  const { mutateAsync: createMeeting, isPending: isCreating } = useCreateMeeting();
+  const { mutateAsync: updateMeeting, isPending: isUpdating } = useUpdateMeeting(meetingId ?? "");
+  const isPending = mode === "create" ? isCreating : isUpdating;
+
   const [formError, setFormError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    title: "",
-    location: "",
-    dateTime: "",
-    description: "",
-    agenda: "",
-    durationHours: 1,
-    durationMins: 0,
+    title: initialData?.title ?? "",
+    location: initialData?.location ?? "",
+    dateTime: initialData?.dateTime ?? "",
+    description: initialData?.description ?? "",
+    agenda: initialData?.agenda ?? "",
+    durationHours: initialData?.durationHours ?? 1,
+    durationMins: initialData?.durationMins ?? 0,
   });
   const [emailInput, setEmailInput] = useState("");
-  const [participants, setParticipants] = useState<string[]>([]);
+  const [participants, setParticipants] = useState<string[]>(initialData?.participants ?? []);
 
   const handleAddParticipant = () => {
-    if (!emailInput) return;
-    if (!emailInput.includes("@")) {
+    const email = emailInput.trim();
+    if (!email) return;
+    if (!email.includes("@")) {
       toast.error("Format email tidak valid!");
       return;
     }
-    if (participants.includes(emailInput)) {
+    if (participants.includes(email)) {
       toast.error("Email sudah ditambahkan!");
       return;
     }
-    setParticipants([...participants, emailInput]);
+    setParticipants([...participants, email]);
     setEmailInput("");
   };
 
@@ -52,23 +75,35 @@ export default function MeetingForm() {
       return;
     }
 
+    const payload = {
+      title: formData.title,
+      scheduled_at: new Date(formData.dateTime).toISOString(),
+      location: formData.location,
+      description: formData.description,
+      agenda_text: formData.agenda,
+      participant_emails: participants,
+      duration_minutes: totalMinutes,
+    };
+
     try {
-      const result = await createMeeting({
-        title: formData.title,
-        scheduled_at: new Date(formData.dateTime).toISOString(),
-        location: formData.location,
-        description: formData.description,
-        agenda_text: formData.agenda,
-        participant_emails: participants,
-        duration_minutes: totalMinutes,
-      });
-      toast.success("Rapat berhasil dijadwalkan!");
-      router.push(`/meetings/${result.id}`);
+      if (mode === "create") {
+        const result = await createMeeting(payload);
+        toast.success("Rapat berhasil dijadwalkan!");
+        router.push(`/meetings/${result.id}`);
+      } else {
+        await updateMeeting(payload);
+        toast.success("Rapat berhasil diperbarui!");
+        router.push(`/meetings/${meetingId}`);
+      }
     } catch (err: any) {
-      setFormError(extractApiError(err, "Gagal membuat rapat. Coba lagi."));
+      setFormError(
+        extractApiError(
+          err,
+          mode === "create" ? "Gagal membuat rapat. Coba lagi." : "Gagal memperbarui rapat. Coba lagi."
+        )
+      );
     }
   };
-
 
   return (
     <form
@@ -90,6 +125,7 @@ export default function MeetingForm() {
               type="text"
               required
               placeholder="Contoh: Weekly Standup Sprint"
+              value={formData.title}
               className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             />
@@ -103,6 +139,7 @@ export default function MeetingForm() {
               type="text"
               required
               placeholder="Contoh: Zoom / Ruang Rapat Lt. 3"
+              value={formData.location}
               className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
             />
@@ -115,6 +152,7 @@ export default function MeetingForm() {
             <input
               type="datetime-local"
               required
+              value={formData.dateTime}
               className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all [color-scheme:light]"
               onChange={(e) => setFormData({ ...formData, dateTime: e.target.value })}
             />
@@ -162,6 +200,7 @@ export default function MeetingForm() {
             <textarea
               rows={4}
               placeholder="Berikan gambaran ringkas mengenai topik rapat utama..."
+              value={formData.description}
               className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none"
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
@@ -174,6 +213,7 @@ export default function MeetingForm() {
             <textarea
               rows={4}
               placeholder="1. Pembuka&#10;2. Pembahasan Sprint 24&#10;3. Evaluasi Kendala"
+              value={formData.agenda}
               className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none"
               onChange={(e) => setFormData({ ...formData, agenda: e.target.value })}
             />
@@ -234,19 +274,28 @@ export default function MeetingForm() {
 
       {/* FOOTER ACTIONS BUTTON */}
       <div className="border-t border-slate-200 pt-6 flex flex-col sm:flex-row items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-semibold text-sm transition-all"
-        >
-          Batalkan
-        </button>
+        {mode === "edit" && meetingId ? (
+          <Link
+            href={`/meetings/${meetingId}`}
+            className="w-full sm:w-auto text-center px-6 py-3 rounded-xl border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-semibold text-sm transition-all"
+          >
+            Batalkan
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-50 font-semibold text-sm transition-all"
+          >
+            Batalkan
+          </button>
+        )}
         <button
           type="submit"
           disabled={isPending}
           className="w-full sm:w-auto px-8 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm transition-all duration-300 disabled:opacity-50"
         >
-          {isPending ? "Menyimpan..." : "Jadwalkan Pertemuan"}
+          {isPending ? "Menyimpan..." : mode === "create" ? "Jadwalkan Pertemuan" : "Simpan Perubahan"}
         </button>
       </div>
     </form>

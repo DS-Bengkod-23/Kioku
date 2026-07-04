@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
 import io
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.services.auth import get_current_user
 from app.models.user import User
 from app.schemas.checkin import (
@@ -20,17 +21,21 @@ router = APIRouter(tags=["checkin"])
 
 
 @router.get("/check-in/{token}", response_model=CheckinPageResponse)
-def get_checkin_page(token: str, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def get_checkin_page(request: Request, token: str, db: Session = Depends(get_db)):
     return checkin_service.get_checkin_info(db, token)
 
 
 @router.post("/check-in/{token}/confirm", response_model=CheckinConfirmResponse)
-def confirm_checkin(token: str, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def confirm_checkin(request: Request, token: str, db: Session = Depends(get_db)):
     return checkin_service.confirm_checkin(db, token)
 
 
 @router.patch("/check-in/{token}/action-items/{action_item_id}")
+@limiter.limit("30/minute")
 def update_checkin_action_item(
+    request: Request,
     token: str,
     action_item_id: uuid.UUID,
     data: CheckinActionItemUpdateRequest,
@@ -40,7 +45,8 @@ def update_checkin_action_item(
 
 
 @router.get("/check-in/{token}/notulen.pdf")
-def download_checkin_notulen_pdf(token: str, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def download_checkin_notulen_pdf(request: Request, token: str, db: Session = Depends(get_db)):
     pdf_bytes = checkin_service.get_checkin_notulen_pdf(db, token)
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

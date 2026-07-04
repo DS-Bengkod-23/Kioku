@@ -29,7 +29,7 @@ export default function NewMeetingPage() {
         </div>
 
         {/* ISOLATED FORM COMPONENT */}
-        <MeetingForm />
+        <MeetingForm mode="create" />
       </div>
     </div>
   );

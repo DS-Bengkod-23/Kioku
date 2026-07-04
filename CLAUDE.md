@@ -207,16 +207,15 @@ All ML functions must raise specific exceptions (not silent fail) and return Pyd
 
 ## Known Schema Gaps
 
-These are silent mismatches between frontend and backend — no error is thrown, but the operation has no effect:
-
-- **`PATCH /meetings/:id`** — `MeetingUpdate` schema (`schemas/meeting.py`) does not include `participant_emails`, so adding/removing participants via the Edit Meeting page does not persist to the database.
 - **`PATCH /action-items/:id`** — `ActionItemUpdateRequest` (`schemas/action_item.py`) **does** include `assignee_participant_id` (added in PR #8). Backend model `ActionItem` assigns via `assignee_participant_id` FK to `meeting_participants.id`, not directly to `users.id`.
+
+(The previous entry here about `PATCH /meetings/:id` not accepting `participant_emails` is no longer accurate — `MeetingUpdate` supports it and `update_meeting()` fully implements add/remove of participants, including sending invitations to newly-added ones.)
 
 ---
 
 ## Auth Model
 
-JWT + bcrypt. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use, expire 24h after meeting ends, and do not require login.
+JWT + bcrypt. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use and do not require login. They intentionally never expire (participants can revisit the check-in portal — notulen, action items — at any time); the check-in *action* itself is separately gated by `attendance_locked` and by the meeting's `scheduled_at + duration_minutes` window.
 
 ---
 
