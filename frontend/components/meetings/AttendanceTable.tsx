@@ -42,7 +42,7 @@ export default function AttendanceTable({ participants, onMarkAttendance }: Atte
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
           Status Kehadiran
         </h3>
-        <span className="text-[10px] px-2 py-0.5 bg-blue-50 border border-slate-200 rounded-md text-blue-600 font-mono">
+        <span className="text-[10px] px-2 py-0.5 bg-indigo-50 border border-slate-200 rounded-md text-indigo-600 font-mono">
           {participants.filter(p => p.status === "Hadir").length}/{participants.length} Hadir
         </span>
       </div>

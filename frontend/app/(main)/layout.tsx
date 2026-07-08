@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Video, CheckSquare, User, LogOut } from "lucide-react";
+import { Video, CheckSquare, Calendar, User, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutUser } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function MainDashboardLayout({
     children,
@@ -55,34 +56,49 @@ export default function MainDashboardLayout({
 
     return (
         <div className="w-full min-h-screen flex flex-col bg-slate-50 overflow-x-hidden">
-            <header className="w-full border-b border-slate-100 bg-white/95 backdrop-blur-md sticky top-0 z-50 shadow-sm shadow-slate-100/80">
+            <header className="w-full border-b border-slate-200 bg-white sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 h-16 grid grid-cols-3 items-center">
 
                     {/* Logo */}
                     <div className="flex items-center justify-start gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/25">
-                            <Video size={14} className="text-white" />
+                        <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center rotate-3">
+                            <Video size={15} className="text-white" />
                         </div>
-                        <span className="font-bold text-lg tracking-wide text-slate-900">MeetMate</span>
+                        <span className="font-display font-bold text-lg tracking-tight text-slate-900">Kioku</span>
                     </div>
 
                     {/* Navigasi */}
                     <nav className="hidden md:flex items-center justify-center gap-1 text-sm font-medium">
                         <Link
                             href="/meetings"
-                            className={isActive("/meetings")
-                                ? "bg-indigo-50 text-indigo-700 font-semibold flex items-center gap-2 px-4 py-2 rounded-xl"
-                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 px-4 py-2 rounded-xl transition"
-                            }
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-lg border-b-2 transition-all",
+                                isActive("/meetings")
+                                    ? "text-indigo-700 font-bold border-indigo-600"
+                                    : "text-slate-400 hover:text-slate-700 border-transparent"
+                            )}
                         >
                             <Video size={15} /> Rapat
                         </Link>
                         <Link
+                            href="/calendar"
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-lg border-b-2 transition-all",
+                                isActive("/calendar")
+                                    ? "text-indigo-700 font-bold border-indigo-600"
+                                    : "text-slate-400 hover:text-slate-700 border-transparent"
+                            )}
+                        >
+                            <Calendar size={15} /> Kalender
+                        </Link>
+                        <Link
                             href="/action-items"
-                            className={isActive("/action-items")
-                                ? "bg-indigo-50 text-indigo-700 font-semibold flex items-center gap-2 px-4 py-2 rounded-xl"
-                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 flex items-center gap-2 px-4 py-2 rounded-xl transition"
-                            }
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2 rounded-lg border-b-2 transition-all",
+                                isActive("/action-items")
+                                    ? "text-indigo-700 font-bold border-indigo-600"
+                                    : "text-slate-400 hover:text-slate-700 border-transparent"
+                            )}
                         >
                             <CheckSquare size={15} /> Tugas Saya
                         </Link>
@@ -94,7 +110,7 @@ export default function MainDashboardLayout({
                             onClick={() => setIsOpen(!isOpen)}
                             className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-full transition-all cursor-pointer"
                         >
-                            <div className="h-6 w-6 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] font-bold flex items-center justify-center text-white shadow-sm">
+                            <div className="h-6 w-6 rounded-full bg-indigo-600 text-[10px] font-bold flex items-center justify-center text-white">
                                 {getInitials(profileName)}
                             </div>
                             <span className="text-xs font-semibold text-slate-700 hidden sm:inline">{profileName}</span>

@@ -34,7 +34,9 @@ export default function EditMeetingPage() {
   const localDateTime = meeting.scheduled_at
     ? new Date(meeting.scheduled_at).toISOString().slice(0, 16)
     : "";
-  const existingEmails = (meeting.participants ?? []).map((p: ParticipantResponse) => p.email);
+  const existingEmails = (meeting.participants ?? [])
+    .filter((p: ParticipantResponse) => p.role !== "organizer")
+    .map((p: ParticipantResponse) => p.email);
 
   return (
     <div className="w-full min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">

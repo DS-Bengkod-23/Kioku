@@ -20,15 +20,16 @@ interface ActionItemListProps {
   participants?: { id: string; name: string }[];
   onAssign?: (id: string | number, assigneeId: string) => void;
   onAdd?: (data: { task: string; assigneeParticipantId: string | null; dueDate: string | null }) => void;
+  onEditDueDateAttempt?: (id: string | number) => void;
 }
 
 const PRIORITY_STYLE = {
   Tinggi: "bg-red-50 text-red-700 border-red-200",
-  Sedang: "bg-blue-50 text-blue-700 border-blue-200",
+  Sedang: "bg-indigo-50 text-indigo-700 border-indigo-200",
   Rendah: "bg-slate-50 text-slate-500 border-slate-200",
 };
 
-export default function ActionItemList({ items, onToggle, participants, onAssign, onAdd }: ActionItemListProps) {
+export default function ActionItemList({ items, onToggle, participants, onAssign, onAdd, onEditDueDateAttempt }: ActionItemListProps) {
   const [showForm, setShowForm] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [newAssignee, setNewAssignee] = useState("");
@@ -67,7 +68,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
           {item.status === "Selesai" ? (
             <CheckCircle2 className="text-emerald-400 mt-0.5 shrink-0" size={18} />
           ) : (
-            <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-blue-600/40")} size={18} />
+            <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-indigo-600/40")} size={18} />
           )}
 
           <div className="flex-1 min-w-0">
@@ -92,9 +93,18 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
               ) : (
                 <span className="flex items-center gap-1"><Users size={11} /> {item.assignee}</span>
               )}
-              {item.dueDate && (
+              {item.dueDate ? (
                 <span className="flex items-center gap-1"><Clock size={11} /> {formatShortDate(item.dueDate)}</span>
-              )}
+              ) : onEditDueDateAttempt ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onEditDueDateAttempt(item.id); }}
+                  className="flex items-center gap-1 text-slate-400 hover:text-indigo-600 transition"
+                  title="Tambah deadline"
+                >
+                  <Clock size={11} /> + Deadline
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -117,14 +127,14 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
           <form
             onSubmit={handleSubmit}
             onClick={(e) => e.stopPropagation()}
-            className="border border-blue-200 bg-blue-50/40 rounded-xl p-4 space-y-3"
+            className="border border-indigo-200 bg-indigo-50/40 rounded-xl p-4 space-y-3"
           >
             <input
               type="text"
               placeholder="Nama tugas..."
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
-              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-blue-400"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
               autoFocus
               required
             />
@@ -133,7 +143,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
                 <select
                   value={newAssignee}
                   onChange={(e) => setNewAssignee(e.target.value)}
-                  className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-blue-400 text-slate-600"
+                  className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400 text-slate-600"
                 >
                   <option value="">Assign ke... (opsional)</option>
                   {participants.map((p) => (
@@ -145,7 +155,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
                 type="date"
                 value={newDueDate}
                 onChange={(e) => setNewDueDate(e.target.value)}
-                className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-blue-400 text-slate-600"
+                className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400 text-slate-600"
               />
             </div>
             <div className="flex gap-2 justify-end">
@@ -159,7 +169,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
               <button
                 type="submit"
                 disabled={!newTask.trim()}
-                className="flex items-center gap-1 text-[11px] text-white bg-blue-700 hover:bg-blue-800 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                className="flex items-center gap-1 text-[11px] text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition disabled:opacity-50"
               >
                  Tambah
               </button>
@@ -168,7 +178,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
         ) : (
           <button
             onClick={() => setShowForm(true)}
-            className="w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-400 hover:text-blue-600 hover:border-blue-300 border border-dashed border-slate-200 rounded-xl py-3 transition"
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] text-slate-400 hover:text-indigo-600 hover:border-indigo-300 border border-dashed border-slate-200 rounded-xl py-3 transition"
           >
             <Plus size={13} /> Tambah action item manual
           </button>

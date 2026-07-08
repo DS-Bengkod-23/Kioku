@@ -1,6 +1,6 @@
-# MeetMate Frontend
+# Kioku Frontend
 
-Next.js frontend untuk MeetMate.
+Next.js frontend untuk Kioku.
 
 **Owner:** Helena
 

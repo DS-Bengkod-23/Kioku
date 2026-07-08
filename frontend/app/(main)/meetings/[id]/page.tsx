@@ -64,7 +64,7 @@ export default function MeetingDetailPage() {
     }
   }, [meeting?.processing_status]);
   const { mutate: updateAttendance } = useUpdateAttendance(id);
-  const { mutate: updateActionItem } = useUpdateActionItem(id);
+  const { mutate: updateActionItem, mutateAsync: updateActionItemAsync } = useUpdateActionItem(id);
   const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
   const { mutateAsync: completeMeeting, isPending: isCompleting } = useCompleteMeeting(id);
@@ -132,8 +132,16 @@ export default function MeetingDetailPage() {
     updateActionItem({ id: String(taskId), status: newStatus });
   };
 
-  const handleAssignTask = (taskId: string | number, assigneeId: string) => {
-    updateActionItem({ id: String(taskId), assigneeId: assigneeId || null });
+  const handleAssignTask = async (taskId: string | number, assigneeId: string) => {
+    try {
+      await updateActionItemAsync({ id: String(taskId), assigneeId: assigneeId || null });
+    } catch {
+      toast.error("Gagal assign action item. Pastikan kamu adalah organizer.");
+    }
+  };
+
+  const handleEditDueDateAttempt = () => {
+    toast.info("Fitur edit deadline belum tersedia — menunggu update dari backend.");
   };
 
   const handleDownloadPdf = async () => {
@@ -194,6 +202,11 @@ export default function MeetingDetailPage() {
       status,
       priority: getActionItemPriority(item.due_date),
     };
+  }).sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
   const participantOptions = (meeting?.participants ?? []).map((p: ParticipantResponse) => ({
@@ -228,7 +241,7 @@ export default function MeetingDetailPage() {
     return (
       <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
         <p className="text-rose-400 text-sm">Rapat tidak ditemukan atau terjadi kesalahan.</p>
-        <Link href="/meetings" className="text-blue-600 text-xs hover:underline">← Kembali ke Dashboard</Link>
+        <Link href="/meetings" className="text-indigo-600 text-xs hover:underline">← Kembali ke Dashboard</Link>
       </div>
     );
   }
@@ -242,12 +255,12 @@ export default function MeetingDetailPage() {
         </Link>
 
         <div className="flex items-start justify-between mb-8 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
-          <h1 className="text-2xl font-bold text-slate-900">{meeting.title}</h1>
+          <h1 className="font-display text-2xl font-bold text-slate-900">{meeting.title}</h1>
           {isOrganizer && (
             <div className="flex items-center gap-2">
               <Link
                 href={`/meetings/${id}/edit`}
-                className="text-xs font-semibold text-blue-600 border border-blue-200 px-4 py-2 rounded-xl hover:bg-blue-50 transition"
+                className="text-xs font-semibold text-indigo-600 border border-indigo-200 px-4 py-2 rounded-xl hover:bg-indigo-50 transition"
               >
                 Edit Rapat
               </Link>
@@ -320,7 +333,7 @@ export default function MeetingDetailPage() {
             {isOrganizer && (
               <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs font-bold text-blue-700 uppercase tracking-wider">Upload Rekaman</h2>
+                  <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Upload Rekaman</h2>
                   {hasRecording && (
                     <button
                       onClick={handleDeleteRecording}
@@ -373,11 +386,11 @@ export default function MeetingDetailPage() {
 
             {/* Informasi Rapat */}
             <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 space-y-4">
-              <h2 className="text-xs font-bold text-blue-700 uppercase tracking-wider border-b border-slate-200 pb-3">Informasi Rapat</h2>
+              <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-200 pb-3">Informasi Rapat</h2>
               <div className="text-xs space-y-3.5 text-slate-700">
-                <p className="flex items-center gap-2.5"><UserCircle className="text-blue-600" size={15} /> {meeting.organizer?.name}</p>
-                <p className="flex items-center gap-2.5"><Calendar className="text-blue-600" size={15} /> {formatDate(meeting.scheduled_at)}</p>
-                <p className="flex items-center gap-2.5"><MapPin className="text-blue-600" size={15} /> {meeting.location || "–"}</p>
+                <p className="flex items-center gap-2.5"><UserCircle className="text-indigo-600" size={15} /> {meeting.organizer?.name}</p>
+                <p className="flex items-center gap-2.5"><Calendar className="text-indigo-600" size={15} /> {formatDate(meeting.scheduled_at)}</p>
+                <p className="flex items-center gap-2.5"><MapPin className="text-indigo-600" size={15} /> {meeting.location || "–"}</p>
               </div>
               {meeting.description && (
                 <div className="pt-3 border-t border-slate-200 space-y-1.5">
@@ -414,7 +427,7 @@ export default function MeetingDetailPage() {
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={cn("flex-1 py-2.5 text-xs font-bold rounded-xl transition capitalize",
-                        activeTab === tab ? "bg-blue-700 text-white" : "text-slate-500 hover:text-slate-700"
+                        activeTab === tab ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-700"
                       )}
                     >
                       {tab === "ringkasan" ? "Ringkasan AI" : "Transkrip Audio"}
@@ -425,7 +438,7 @@ export default function MeetingDetailPage() {
                   <button
                     onClick={handleDownloadPdf}
                     disabled={isDownloadingPdf}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-blue-700 hover:border-blue-300 text-xs font-semibold transition disabled:opacity-50 shrink-0"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-indigo-700 hover:border-indigo-300 text-xs font-semibold transition disabled:opacity-50 shrink-0"
                     title="Download Notulen PDF"
                   >
                     <Download size={13} />
@@ -465,13 +478,14 @@ export default function MeetingDetailPage() {
 
             {/* Action Items */}
             <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
-              <h2 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-4">Action Items</h2>
+              <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Action Items</h2>
               <ActionItemList
                 items={actionItems}
                 onToggle={handleToggleTask}
                 participants={participantOptions}
                 onAssign={isOrganizer ? handleAssignTask : undefined}
                 onAdd={isOrganizer ? handleCreateActionItem : undefined}
+                onEditDueDateAttempt={isOrganizer ? handleEditDueDateAttempt : undefined}
               />
             </section>
 

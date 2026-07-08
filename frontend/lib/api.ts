@@ -180,7 +180,9 @@ export const downloadCheckinNotulenPdf = async (token: string, meetingTitle: str
   const a = document.createElement("a");
   a.href = url;
   a.download = `notulen-${meetingTitle}.pdf`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
 
@@ -192,7 +194,9 @@ export const downloadNotulenPdf = async (meetingId: string, meetingTitle: string
   const a = document.createElement("a");
   a.href = url;
   a.download = `notulen-${meetingTitle}.pdf`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
 

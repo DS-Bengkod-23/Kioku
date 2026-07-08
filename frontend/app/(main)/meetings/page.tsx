@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Filter, Plus, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Filter, Plus, ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { cn } from "@/lib/utils";
 import MeetingCard from "@/components/meetings/MeetingCard";
 import {
   DropdownMenu,
@@ -68,6 +70,22 @@ export default function MeetingsDashboard() {
   );
   const { data: searchData, isLoading: isSearching } = useSearchMeetings(debouncedQuery);
 
+  // Hitung jumlah rapat per status — pakai endpoint yang sama dengan limit=1
+  // supaya payload kecil, "total" sudah dihitung backend sebelum pagination.
+  const { data: scheduledStat } = useMeetings({ status: "scheduled", page: 1, limit: 1 });
+  const { data: completedStat } = useMeetings({ status: "completed", page: 1, limit: 1 });
+  const { data: cancelledStat } = useMeetings({ status: "cancelled", page: 1, limit: 1 });
+
+  const statScheduled = scheduledStat?.total ?? 0;
+  const statCompleted = completedStat?.total ?? 0;
+  const statCancelled = cancelledStat?.total ?? 0;
+  const stats = {
+    total: statScheduled + statCompleted + statCancelled,
+    scheduled: statScheduled,
+    completed: statCompleted,
+    cancelled: statCancelled,
+  };
+
   const rawItems: MeetingListItem[] = debouncedQuery
     ? (searchData?.items ?? [])
     : (meetingsData?.items ?? []);
@@ -89,16 +107,50 @@ export default function MeetingsDashboard() {
 
   const loading = isLoading || isSearching;
 
+  const handleDateFilterAttempt = () => {
+    toast.info("Pencarian berdasarkan tanggal belum tersedia — menunggu update dari backend.");
+  };
+
   return (
     <div className="w-full min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
       <main className="max-w-7xl mx-auto px-6 pt-8 space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Halo, {userName}! 👋</h1>
-          <p className="text-slate-500 text-sm mt-1">Kelola dan tinjau rapat pintar kamu dari sini.</p>
+        {/* HERO: greeting + CTA + ringkasan stat digabung jadi satu panel */}
+        <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-slate-900">Halo, {userName}! 👋</h1>
+            <p className="text-slate-500 text-sm mt-1">Kelola dan tinjau rapat pintar kamu dari sini.</p>
+            <Link
+              href="/meetings/new"
+              className="inline-flex items-center gap-1.5 mt-4 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all duration-200"
+            >
+              <Plus size={15} />
+              Buat Rapat
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-6 sm:gap-8">
+            <div>
+              <p className="font-display text-4xl font-bold text-indigo-600">{stats.total}</p>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Total Rapat</span>
+            </div>
+            <div className="h-10 w-px bg-slate-200 shrink-0" />
+            <div className="flex gap-5 sm:gap-6">
+              {[
+                { label: "Dijadwalkan", val: stats.scheduled },
+                { label: "Selesai", val: stats.completed },
+                { label: "Dibatalkan", val: stats.cancelled },
+              ].map((stat, i) => (
+                <div key={i}>
+                  <p className="font-display text-xl font-bold text-slate-900">{stat.val}</p>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{stat.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* UTILITY BAR */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        {/* UTILITY BAR — fokus pencarian & filter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input
@@ -111,6 +163,16 @@ export default function MeetingsDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDateFilterAttempt}
+              title="Cari berdasarkan tanggal"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-slate-300 transition-all outline-none shadow-sm"
+            >
+              <Calendar size={14} className="text-indigo-500" />
+              <span>Tanggal</span>
+            </button>
+
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-slate-300 transition-all outline-none shadow-sm">
                 <Filter size={14} className="text-indigo-500" />
@@ -129,14 +191,6 @@ export default function MeetingsDashboard() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <Link
-              href="/meetings/new"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-sm font-semibold text-white shadow-md shadow-indigo-500/25 transition-all duration-300"
-            >
-              <Plus size={15} />
-              Buat Rapat
-            </Link>
           </div>
         </div>
 
@@ -173,11 +227,12 @@ export default function MeetingsDashboard() {
                     <button
                       key={p}
                       onClick={() => setPage(p)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition ${
+                      className={cn(
+                        "w-8 h-8 rounded-lg text-xs font-bold transition",
                         p === page
                           ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
                           : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-                      }`}
+                      )}
                     >
                       {p}
                     </button>

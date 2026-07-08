@@ -11,7 +11,7 @@ export default function ProcessingStatus({ status, progress, fileName }: Props) 
     return (
       <div className="space-y-2">
         <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-          <div className="bg-blue-700 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+          <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
         <p className="text-[10px] text-slate-500">
           {fileName ? `Mengunggah ${fileName}...` : "Mengunggah..."} {progress}%
@@ -25,7 +25,7 @@ export default function ProcessingStatus({ status, progress, fileName }: Props) 
       <div className="space-y-2">
         {fileName && (
           <div className="flex items-center gap-2 text-xs text-slate-700 font-medium">
-            <FileAudio size={14} className="text-blue-600" /> {fileName}
+            <FileAudio size={14} className="text-indigo-600" /> {fileName}
           </div>
         )}
         <p className="text-[10px] text-slate-500">AI sedang memproses...</p>

@@ -17,6 +17,18 @@ interface MeetingCardProps {
   hasRecording?: boolean;
 }
 
+const STATUS_ACCENT: Record<MeetingCardProps["status"], string> = {
+  Dijadwalkan: "border-l-indigo-500",
+  Selesai: "border-l-emerald-600",
+  Dibatalkan: "border-l-red-400",
+};
+
+const STATUS_BADGE: Record<MeetingCardProps["status"], string> = {
+  Dijadwalkan: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+  Selesai: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  Dibatalkan: "bg-red-50 text-red-700 border border-red-200",
+};
+
 export default function MeetingCard({
   id,
   title,
@@ -24,22 +36,21 @@ export default function MeetingCard({
   date,
   location,
   totalParticipants,
+  attendedParticipants,
   hasTranscript,
   hasRecording,
 }: MeetingCardProps) {
   return (
-    <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5 transition-all duration-300 group">
+    <div
+      className={cn(
+        "bg-white border border-slate-200 border-l-4 shadow-sm rounded-2xl p-5 flex flex-col justify-between hover:shadow-md hover:shadow-indigo-500/5 transition-all duration-300 group",
+        STATUS_ACCENT[status]
+      )}
+    >
       <div className="space-y-4">
         {/* Status Badge + Indikator */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span
-            className={cn(
-              "text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide uppercase",
-              status === "Dijadwalkan" && "bg-indigo-50 text-indigo-700 border border-indigo-200",
-              status === "Selesai" && "bg-emerald-50 text-emerald-700 border border-emerald-200",
-              status === "Dibatalkan" && "bg-red-50 text-red-700 border border-red-200"
-            )}
-          >
+          <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full tracking-wide uppercase", STATUS_BADGE[status])}>
             {status}
           </span>
 
@@ -58,7 +69,7 @@ export default function MeetingCard({
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-slate-900 line-clamp-2 group-hover:text-indigo-700 transition-colors">
+        <h3 className="font-display text-base font-bold text-slate-900 line-clamp-2 group-hover:text-indigo-700 transition-colors">
           {title}
         </h3>
 
@@ -74,7 +85,7 @@ export default function MeetingCard({
           </div>
           <div className="flex items-center gap-2">
             <Users size={13} className="text-slate-400" />
-            <span>{totalParticipants} Peserta Terundang</span>
+            <span>{attendedParticipants}/{totalParticipants} Hadir</span>
           </div>
         </div>
       </div>
