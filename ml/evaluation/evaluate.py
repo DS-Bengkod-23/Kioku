@@ -61,34 +61,13 @@ def compute_action_item_f1(golden: list[dict], predicted: list[dict]) -> float:
 
 
 def run_evaluation():
-    import whisper as _whisper
     from extract import extract_action_items
     try:
-        from transcribe import transcribe as _transcribe_fn
-        from schemas import TranscriptResult, TranscriptSegment
+        from transcribe import transcribe as transcribe_with_model
     except ImportError:
-        from ml.transcribe import transcribe as _transcribe_fn
-        from ml.schemas import TranscriptResult, TranscriptSegment
+        from ml.transcribe import transcribe as transcribe_with_model
 
-    model_size = __import__("os").getenv("WHISPER_MODEL", "large-v3")
-    print(f"Loading Whisper {model_size}...")
-    whisper_model = _whisper.load_model(model_size)
-    print("Model loaded.\n")
-
-    def transcribe_with_model(audio_path: str) -> TranscriptResult:
-        result = whisper_model.transcribe(audio_path, word_timestamps=False)
-        segments = [
-            TranscriptSegment(
-                speaker="SPEAKER_00",
-                start=seg["start"],
-                end=seg["end"],
-                text=seg["text"].strip(),
-            )
-            for seg in result["segments"]
-        ]
-        duration = segments[-1].end if segments else 0.0
-        language = result.get("language") or "id"
-        return TranscriptResult(segments=segments, language=language, duration=duration)
+    print("Menggunakan Gemini STT untuk evaluasi.\n")
 
     results = []
 
@@ -109,6 +88,7 @@ def run_evaluation():
             else []
         )
 
+        print(f"  Transkripsi {sample_dir.name}...")
         transcript = transcribe_with_model(str(audio_file))
 
         hypothesis = " ".join(seg.text for seg in transcript.segments)
