@@ -9,6 +9,9 @@ class MeetingCreate(BaseModel):
     title: str
     scheduled_at: datetime
     location: Optional[str] = None
+    location_building: Optional[str] = None
+    location_room: Optional[str] = None
+    location_city: Optional[str] = None
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     participant_emails: List[str]
@@ -19,6 +22,9 @@ class MeetingUpdate(BaseModel):
     title: Optional[str] = None
     scheduled_at: Optional[datetime] = None
     location: Optional[str] = None
+    location_building: Optional[str] = None
+    location_room: Optional[str] = None
+    location_city: Optional[str] = None
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     duration_minutes: Optional[int] = None
@@ -119,6 +125,9 @@ class MeetingDetail(BaseModel):
     title: str
     scheduled_at: datetime
     location: Optional[str] = None
+    location_building: Optional[str] = None
+    location_room: Optional[str] = None
+    location_city: Optional[str] = None
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     status: str
@@ -180,6 +189,9 @@ class MeetingDetail(BaseModel):
             "title": data.title,
             "scheduled_at": data.scheduled_at,
             "location": data.location,
+            "location_building": data.location_building,
+            "location_room": data.location_room,
+            "location_city": data.location_city,
             "description": data.description,
             "agenda_text": data.agenda_text,
             "status": status,
