@@ -22,6 +22,7 @@ class MeetingUpdate(BaseModel):
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     duration_minutes: Optional[int] = None
+    participant_emails: Optional[List[str]] = None
 
 
 class ParticipantResponse(BaseModel):
@@ -30,27 +31,31 @@ class ParticipantResponse(BaseModel):
     name: Optional[str] = None
     role: str
     attendance_status: str
+    checkin_token: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
     def extract_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return data
-            
+
         name = data.user.name if getattr(data, 'user', None) else None
-        
+
         attendance_status = "pending"
         if getattr(data, 'attendance', None):
             attendance_status = data.attendance.status.value if hasattr(data.attendance.status, 'value') else data.attendance.status
-            
+
         role = data.role.value if hasattr(data.role, 'value') else data.role
+
+        checkin_token = data.invitation.token if getattr(data, 'invitation', None) else None
 
         return {
             "id": data.id,
             "email": data.email,
             "name": name,
             "role": role,
-            "attendance_status": attendance_status
+            "attendance_status": attendance_status,
+            "checkin_token": checkin_token,
         }
 
 
@@ -70,12 +75,12 @@ class MeetingListItem(BaseModel):
     def extract_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return data
-            
+
         status = data.status.value if hasattr(data.status, 'value') else data.status
-        
+
         participant_count = len(data.participants) if hasattr(data, 'participants') else 0
         attendance_count = sum(1 for p in (data.participants if hasattr(data, 'participants') else []) if p.attendance and p.attendance.status.value == "hadir")
-        
+
         has_recording = data.recording is not None if hasattr(data, 'recording') else False
         processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):
@@ -105,7 +110,7 @@ class OrganizerResponse(BaseModel):
     id: UUID
     name: str
     email: str
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -131,10 +136,9 @@ class MeetingDetail(BaseModel):
     def extract_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return data
-            
+
         status = data.status.value if hasattr(data.status, 'value') else data.status
-        
-        # If the recording object exists, it might have a processing_status
+
         has_recording = data.recording is not None if hasattr(data, 'recording') else False
         processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):

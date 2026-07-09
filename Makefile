@@ -1,4 +1,13 @@
-.PHONY: up down logs migrate restart build check pre-commit
+.PHONY: init up down logs migrate restart build check pre-commit infra build-worker
+
+# Setup awal — bikin .env dari .env.example kalau belum ada (tidak menimpa yang sudah ada)
+init:
+	@if [ -f .env ]; then \
+		echo ".env sudah ada, tidak ditimpa."; \
+	else \
+		cp .env.example .env; \
+		echo ".env dibuat dari .env.example — isi OPENAI_API_KEY dan HF_TOKEN dulu sebelum 'make up'."; \
+	fi
 
 # Menjalankan semua services
 up:
@@ -35,3 +44,13 @@ migrate:
 # Menjalankan format pre-commit secara manual
 pre-commit:
 	pre-commit run --all-files
+
+# [Hybrid mode] Jalankan infrastruktur + celery-worker sekaligus
+infra:
+	docker compose up -d postgres redis minio mailhog
+	docker compose up --build -d --no-deps celery-worker
+
+# [Hybrid mode] Rebuild celery-worker saja (jika ada perubahan di ml/ atau requirements.txt)
+build-worker:
+	docker compose build celery-worker
+	docker compose up -d --no-deps celery-worker

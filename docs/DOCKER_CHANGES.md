@@ -22,8 +22,7 @@ Dokumen ini mencatat semua perubahan yang dilakukan saat mengintegrasikan FE, BE
 ### Workflow & Tooling
 | File | Keterangan |
 |---|---|
-| `Makefile` | Shortcut command: `make up`, `make down`, `make build`, `make migrate`, `make logs-api`, `make logs-worker` |
-| `make.bat` | Versi Windows dari Makefile untuk yang tidak punya `make` |
+| `Makefile` | Shortcut command: `make init`, `make up`, `make down`, `make build`, `make migrate`, `make logs-api`, `make logs-worker`. Untuk yang tidak punya `make` ter-install (mis. Windows CMD/PowerShell tanpa Chocolatey), README mencantumkan perintah `docker compose` mentah sebagai alternatif di tiap langkah — tidak ada `make.bat` terpisah. |
 | `.pre-commit-config.yaml` | Auto-format kode Python (ruff) dan JS sebelum `git commit`. Opsional, aktifkan dengan `pip install pre-commit && pre-commit install` |
 | `docs/DOCKER_WORKFLOW.md` | Panduan lengkap cara pakai Docker workflow |
 

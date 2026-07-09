@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, UploadFile
 
@@ -32,6 +31,11 @@ def _require_organizer(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
     )
     if not participant:
         raise HTTPException(status_code=403, detail="Only organizer can perform this action")
+
+
+def _require_participant(meeting: Meeting, user_id: uuid.UUID):
+    if not any(p.user_id == user_id for p in meeting.participants):
+        raise HTTPException(status_code=403, detail="Not authorized to access this meeting")
 
 
 async def upload_recording(
@@ -68,7 +72,7 @@ async def upload_recording(
     db.add(recording)
 
     # Lock attendance segera saat recording diupload — sinyal meeting sudah selesai
-    meeting.attendance_locked_at = datetime.now(timezone.utc)
+    meeting.attendance_locked = True
 
     db.commit()
     db.refresh(recording)
@@ -80,7 +84,8 @@ async def upload_recording(
 
 
 def get_recording_status(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Recording:
-    _get_meeting_or_404(db, meeting_id)
+    meeting = _get_meeting_or_404(db, meeting_id)
+    _require_participant(meeting, user_id)
 
     recording = db.query(Recording).filter(Recording.meeting_id == meeting_id).first()
     if not recording:

@@ -1,7 +1,9 @@
 import uuid
+from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime, date
 from app.models.attendance import AttendanceStatus, AttendanceMethod
+from app.models.action_item import ActionItemStatus
 
 
 class CheckinSummary(BaseModel):
@@ -24,10 +26,14 @@ class CheckinPageResponse(BaseModel):
     location: str | None = None
     participant_name: str
     already_checked_in: bool
-    attendance_locked: bool
-    processing_status: str | None = None
-    summary: CheckinSummary | None = None
-    action_items: list[CheckinActionItem] = []
+    attendance_locked: bool = False
+    processing_status: Optional[str] = None
+    summary: Optional[dict] = None
+    action_items: list[dict] = []
+
+
+class CheckinActionItemUpdateRequest(BaseModel):
+    status: ActionItemStatus
 
 
 class CheckinConfirmResponse(BaseModel):

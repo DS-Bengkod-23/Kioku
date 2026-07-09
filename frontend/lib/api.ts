@@ -114,6 +114,11 @@ export const deleteMeeting = async (id: string) => {
   await api.delete(`/meetings/${id}`);
 };
 
+export const completeMeeting = async (id: string) => {
+  const response = await api.patch(`/meetings/${id}/complete`);
+  return response.data;
+};
+
 export const searchMeetings = async (q: string, params?: { page?: number; limit?: number }) => {
   const response = await api.get("/meetings/search", { params: { q, ...params } });
   return response.data;
@@ -166,6 +171,18 @@ export const updateCheckinActionItem = (
   actionItemId: string,
   status: "open" | "done"
 ) => api.patch(`/check-in/${token}/action-items/${actionItemId}`, { status }).then((r) => r.data);
+
+export const downloadCheckinNotulenPdf = async (token: string, meetingTitle: string) => {
+  const response = await api.get(`/check-in/${token}/notulen.pdf`, {
+    responseType: "blob",
+  });
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `notulen-${meetingTitle}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 export const downloadNotulenPdf = async (meetingId: string, meetingTitle: string) => {
   const response = await api.get(`/meetings/${meetingId}/notulen.pdf`, {

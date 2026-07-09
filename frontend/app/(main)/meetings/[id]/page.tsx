@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download } from "lucide-react";
+import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { cn, isDateOverdue } from "@/lib/utils";
+import { cn, isDateOverdue, daysUntil } from "@/lib/utils";
+import type { ActionItemDTO, ParticipantResponse, TranscriptSegment } from "@/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +27,7 @@ import TranscriptView from "@/components/notulen/TranscriptView";
 import AttendanceTable from "@/components/meetings/AttendanceTable";
 
 
-import { useMeeting, useUpdateAttendance, useDeleteMeeting } from "@/hooks/useMeeting";
+import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting } from "@/hooks/useMeeting";
 import { useUploadRecording, useRecordingStatus, useDeleteRecording } from "@/hooks/useRecording";
 import { useUpdateActionItem, useCreateActionItem } from "@/hooks/useActionItems";
 import { downloadNotulenPdf } from "@/lib/api";
@@ -66,6 +67,7 @@ export default function MeetingDetailPage() {
   const { mutate: updateActionItem } = useUpdateActionItem(id);
   const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
+  const { mutateAsync: completeMeeting, isPending: isCompleting } = useCompleteMeeting(id);
 
   // Deteksi apakah user adalah organizer
   // localStorage hanya tersedia di browser (bukan saat SSR)
@@ -110,12 +112,21 @@ export default function MeetingDetailPage() {
     }
   };
 
+  const handleCompleteMeeting = async () => {
+    try {
+      await completeMeeting();
+      toast.success("Rapat ditandai selesai. Presensi dikunci.");
+    } catch {
+      toast.error("Gagal menyelesaikan rapat.");
+    }
+  };
+
   const handleMarkAttendance = (participantId: string, newStatus: "hadir" | "tidak_hadir") => {
     updateAttendance({ participantId, status: newStatus });
   };
 
   const handleToggleTask = (taskId: string | number) => {
-    const item = meeting?.action_items?.find((a: any) => a.id === taskId);
+    const item = meeting?.action_items?.find((a: ActionItemDTO) => a.id === taskId);
     if (!item) return;
     const newStatus = item.status === "done" ? "open" : "done";
     updateActionItem({ id: String(taskId), status: newStatus });
@@ -146,7 +157,7 @@ export default function MeetingDetailPage() {
   };
 
   // Map participants ke format AttendanceTable
-  const attendanceData = (meeting?.participants ?? []).map((p: any) => {
+  const attendanceData = (meeting?.participants ?? []).map((p: ParticipantResponse) => {
     const rawStatus = p.attendance_status ?? "pending";
     const status =
       rawStatus === "hadir" ? "Hadir" :
@@ -162,14 +173,14 @@ export default function MeetingDetailPage() {
 
   const getActionItemPriority = (dueDate?: string | null): "Tinggi" | "Sedang" | "Rendah" => {
     if (!dueDate) return "Rendah";
-    const diffDays = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
-    if (diffDays < 0) return "Tinggi";
-    if (diffDays <= 3) return "Sedang";
+    const diff = daysUntil(dueDate);
+    if (diff < 0) return "Tinggi";
+    if (diff <= 3) return "Sedang";
     return "Rendah";
   };
 
   // Map action items ke format ActionItemList
-  const actionItems = (meeting?.action_items ?? []).map((item: any) => {
+  const actionItems = (meeting?.action_items ?? []).map((item: ActionItemDTO) => {
     const isOverdue = item.due_date && isDateOverdue(item.due_date);
     const status =
       item.status === "done" ? "Selesai" :
@@ -178,14 +189,14 @@ export default function MeetingDetailPage() {
       id: item.id,
       task: item.task,
       assignee: item.assignee?.name || "Belum di-assign",
-      assigneeId: item.assignee?.id ?? null,
+      assigneeId: item.assignee_participant_id ?? null,
       dueDate: item.due_date ?? undefined,
       status,
       priority: getActionItemPriority(item.due_date),
     };
   });
 
-  const participantOptions = (meeting?.participants ?? []).map((p: any) => ({
+  const participantOptions = (meeting?.participants ?? []).map((p: ParticipantResponse) => ({
     id: String(p.id),
     name: p.name || p.email?.split("@")[0] || "Tanpa Nama",
   }));
@@ -240,6 +251,35 @@ export default function MeetingDetailPage() {
               >
                 Edit Rapat
               </Link>
+              {meeting.status === "scheduled" && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="text-xs font-semibold text-emerald-600 border border-emerald-200 px-4 py-2 rounded-xl hover:bg-emerald-50 transition flex items-center gap-1.5">
+                      <CheckCircle size={13} /> Tandai Selesai
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-white border border-slate-200 text-slate-900">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Tandai Rapat Selesai?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-slate-500">
+                        Presensi akan dikunci. Peserta yang belum hadir otomatis ditandai &quot;Tidak Hadir&quot;. Tindakan ini tidak dapat dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-transparent border border-slate-200 text-slate-700 hover:bg-slate-50">
+                        Batalkan
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCompleteMeeting}
+                        disabled={isCompleting}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white border-0 disabled:opacity-50"
+                      >
+                        {isCompleting ? "Memproses..." : "Ya, Selesaikan"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button className="text-xs font-semibold text-rose-600 border border-rose-200 px-4 py-2 rounded-xl hover:bg-rose-50 transition flex items-center gap-1.5">
@@ -403,7 +443,7 @@ export default function MeetingDetailPage() {
                         topics: meeting.summary.topics ?? [],
                       }} />
                     ) : activeTab === "transkrip" && meeting.transcript ? (
-                      <TranscriptView lines={(meeting.transcript.segments ?? []).map((s: any) => ({
+                      <TranscriptView lines={(meeting.transcript.segments ?? []).map((s: TranscriptSegment) => ({
                         timestamp: `${Math.floor(s.start / 60).toString().padStart(2, "0")}:${Math.floor(s.start % 60).toString().padStart(2, "0")}.0`,
                         speakerId: s.speaker,
                         speakerName: s.speaker,

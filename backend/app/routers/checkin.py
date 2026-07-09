@@ -1,67 +1,67 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import uuid
+import io
 
 from app.database import get_db
+from app.rate_limit import limiter
 from app.services.auth import get_current_user
 from app.models.user import User
 from app.schemas.checkin import (
     CheckinPageResponse,
     CheckinConfirmResponse,
-    CheckinActionItem,
     AttendanceUpdateRequest,
     AttendanceUpdateResponse,
-    ActionItemStatusUpdate,
+    CheckinActionItemUpdateRequest,
 )
 from app.services import checkin as checkin_service
-from app.services.checkin import _get_participant_from_token
-from app.services.pdf import generate_notulen_pdf
 
 router = APIRouter(tags=["checkin"])
 
 
 @router.get("/check-in/{token}", response_model=CheckinPageResponse)
-def get_checkin_page(token: str, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def get_checkin_page(request: Request, token: str, db: Session = Depends(get_db)):
     return checkin_service.get_checkin_info(db, token)
 
 
 @router.post("/check-in/{token}/confirm", response_model=CheckinConfirmResponse)
-def confirm_checkin(token: str, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def confirm_checkin(request: Request, token: str, db: Session = Depends(get_db)):
     return checkin_service.confirm_checkin(db, token)
 
 
-@router.patch("/check-in/{token}/action-items/{action_item_id}", response_model=CheckinActionItem)
-def update_action_item_via_token(
+@router.patch("/check-in/{token}/action-items/{action_item_id}")
+@limiter.limit("30/minute")
+def update_checkin_action_item(
+    request: Request,
     token: str,
     action_item_id: uuid.UUID,
-    data: ActionItemStatusUpdate,
+    data: CheckinActionItemUpdateRequest,
     db: Session = Depends(get_db),
 ):
-    return checkin_service.update_action_item_via_token(db, token, action_item_id, data.status)
+    return checkin_service.update_checkin_action_item(db, token, action_item_id, data.status)
 
 
 @router.get("/check-in/{token}/notulen.pdf")
-def download_notulen_pdf_via_token(token: str, db: Session = Depends(get_db)):
-    _, _, meeting = _get_participant_from_token(db, token)
-
-    if meeting.summary is None:
-        raise HTTPException(status_code=404, detail="Notulen belum tersedia")
-
-    organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"
-    pdf_bytes = generate_notulen_pdf(
-        meeting=meeting,
-        organizer_name=organizer_name,
-        participants=meeting.participants,
-        summary=meeting.summary,
-        action_items=meeting.action_items or [],
-    )
-    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in meeting.title)
-    return Response(
-        content=pdf_bytes,
+@limiter.limit("30/minute")
+def download_checkin_notulen_pdf(request: Request, token: str, db: Session = Depends(get_db)):
+    pdf_bytes = checkin_service.get_checkin_notulen_pdf(db, token)
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="notulen-{safe_title}.pdf"'},
+        headers={"Content-Disposition": "attachment; filename=notulen.pdf"},
     )
+
+
+@router.patch("/meetings/{meeting_id}/attendance/lock")
+def lock_attendance(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return checkin_service.lock_attendance(db, meeting_id, current_user.id)
 
 
 @router.patch(

@@ -13,7 +13,9 @@ from app.schemas.meeting import (
     MeetingListResponse,
     MeetingDetail,
 )
+from app.schemas.action_item import ActionItemResponse, ActionItemCreateRequest
 from app.services import meeting as meeting_service
+from app.services import action_item as action_item_service
 from app.services.pdf import generate_notulen_pdf
 
 router = APIRouter(tags=["meetings"])
@@ -52,7 +54,14 @@ def get_meeting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return meeting_service.get_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+    meeting = meeting_service.get_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+    detail = MeetingDetail.model_validate(meeting)
+    if meeting.organizer_id != current_user.id:
+        # checkin_token adalah magic link milik masing-masing peserta — jangan
+        # bocor ke peserta lain, hanya organizer yang boleh melihatnya.
+        for participant in detail.participants:
+            participant.checkin_token = None
+    return detail
 
 @router.patch("/{meeting_id}", response_model=MeetingDetail)
 def update_meeting(
@@ -63,6 +72,15 @@ def update_meeting(
 ):
     return meeting_service.update_meeting(db, meeting_id=meeting_id, user_id=current_user.id, data=data)
 
+@router.patch("/{meeting_id}/complete", response_model=MeetingDetail)
+def complete_meeting(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return meeting_service.complete_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+
+
 @router.delete("/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_meeting(
     meeting_id: uuid.UUID,
@@ -70,6 +88,16 @@ def delete_meeting(
     current_user: User = Depends(get_current_user)
 ):
     meeting_service.delete_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+
+
+@router.post("/{meeting_id}/action-items", response_model=ActionItemResponse, status_code=status.HTTP_201_CREATED)
+def create_action_item(
+    meeting_id: uuid.UUID,
+    data: ActionItemCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return action_item_service.create_action_item(db, meeting_id=meeting_id, user_id=current_user.id, data=data)
 
 
 @router.get("/{meeting_id}/notulen.pdf")

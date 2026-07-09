@@ -52,6 +52,11 @@ class ActionItemUpdateRequest(BaseModel):
     status: Optional[ActionItemStatus] = None
     assignee_participant_id: Optional[UUID] = None
 
+class ActionItemCreateRequest(BaseModel):
+    task: str
+    assignee_participant_id: Optional[UUID] = None
+    due_date: Optional[date] = None
+
 class MeetingSimpleResponse(BaseModel):
     id: UUID
     title: str
