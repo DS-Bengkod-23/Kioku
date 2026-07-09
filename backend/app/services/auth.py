@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
+from app.schemas.auth import UserProfileUpdateRequest
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer = HTTPBearer()
@@ -46,4 +47,16 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exc
+    return user
+
+
+def update_profile(db: Session, user: User, data: UserProfileUpdateRequest) -> User:
+    update_data = data.model_dump(exclude_unset=True)
+    if "email" in update_data and update_data["email"] != user.email:
+        if db.query(User).filter(User.email == update_data["email"]).first():
+            raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+    for field, value in update_data.items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
     return user

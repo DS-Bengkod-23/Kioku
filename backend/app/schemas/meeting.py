@@ -123,6 +123,7 @@ class MeetingDetail(BaseModel):
     agenda_text: Optional[str] = None
     status: str
     duration_minutes: int
+    attendance_locked: bool = False
     organizer: OrganizerResponse
     participants: List[ParticipantResponse]
     recording: Optional[RecordingResponse] = None
@@ -183,6 +184,7 @@ class MeetingDetail(BaseModel):
             "agenda_text": data.agenda_text,
             "status": status,
             "duration_minutes": data.duration_minutes,
+            "attendance_locked": data.attendance_locked,
             "organizer": data.organizer,
             "participants": data.participants,
             "recording": data.recording,

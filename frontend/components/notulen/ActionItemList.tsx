@@ -20,7 +20,7 @@ interface ActionItemListProps {
   participants?: { id: string; name: string }[];
   onAssign?: (id: string | number, assigneeId: string) => void;
   onAdd?: (data: { task: string; assigneeParticipantId: string | null; dueDate: string | null }) => void;
-  onEditDueDateAttempt?: (id: string | number) => void;
+  onSetDueDate?: (id: string | number, dueDate: string | null) => void;
 }
 
 const PRIORITY_STYLE = {
@@ -29,11 +29,13 @@ const PRIORITY_STYLE = {
   Rendah: "bg-slate-50 text-slate-500 border-slate-200",
 };
 
-export default function ActionItemList({ items, onToggle, participants, onAssign, onAdd, onEditDueDateAttempt }: ActionItemListProps) {
+export default function ActionItemList({ items, onToggle, participants, onAssign, onAdd, onSetDueDate }: ActionItemListProps) {
   const [showForm, setShowForm] = useState(false);
   const [newTask, setNewTask] = useState("");
   const [newAssignee, setNewAssignee] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [editingDueDateId, setEditingDueDateId] = useState<string | number | null>(null);
+  const [dueDateDraft, setDueDateDraft] = useState("");
 
   const formatShortDate = (dateStr?: string) => {
     if (!dateStr) return "";
@@ -93,12 +95,45 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
               ) : (
                 <span className="flex items-center gap-1"><Users size={11} /> {item.assignee}</span>
               )}
-              {item.dueDate ? (
-                <span className="flex items-center gap-1"><Clock size={11} /> {formatShortDate(item.dueDate)}</span>
-              ) : onEditDueDateAttempt ? (
+              {editingDueDateId === item.id ? (
+                <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="date"
+                    value={dueDateDraft}
+                    onChange={(e) => setDueDateDraft(e.target.value)}
+                    autoFocus
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { onSetDueDate?.(item.id, dueDateDraft || null); setEditingDueDateId(null); }}
+                    className="text-emerald-600 hover:text-emerald-700"
+                    title="Simpan"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingDueDateId(null)}
+                    className="text-slate-400 hover:text-slate-600"
+                    title="Batal"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ) : item.dueDate ? (
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); onEditDueDateAttempt(item.id); }}
+                  onClick={(e) => { e.stopPropagation(); setEditingDueDateId(item.id); setDueDateDraft(item.dueDate ?? ""); }}
+                  className="flex items-center gap-1 text-slate-500 hover:text-indigo-600 transition"
+                  title="Ubah deadline"
+                >
+                  <Clock size={11} /> {formatShortDate(item.dueDate)}
+                </button>
+              ) : onSetDueDate ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setEditingDueDateId(item.id); setDueDateDraft(""); }}
                   className="flex items-center gap-1 text-slate-400 hover:text-indigo-600 transition"
                   title="Tambah deadline"
                 >

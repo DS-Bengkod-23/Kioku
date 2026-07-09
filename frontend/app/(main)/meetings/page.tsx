@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { Search, Filter, Plus, ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MeetingCard from "@/components/meetings/MeetingCard";
@@ -41,6 +40,11 @@ export default function MeetingsDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>("Semua Status");
   const [userName, setUserName] = useState("Pengguna");
   const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateFromDraft, setDateFromDraft] = useState("");
+  const [dateToDraft, setDateToDraft] = useState("");
 
   // Debounce search 300ms
   useEffect(() => {
@@ -54,6 +58,9 @@ export default function MeetingsDashboard() {
   // Reset halaman saat filter status berubah
   useEffect(() => { setPage(1); }, [statusFilter]);
 
+  // Reset halaman saat filter tanggal berubah
+  useEffect(() => { setPage(1); }, [dateFrom, dateTo]);
+
   // Ambil nama dari localStorage untuk sapaan
   useEffect(() => {
     const profile = JSON.parse(localStorage.getItem("user_profile") || "{}");
@@ -66,9 +73,23 @@ export default function MeetingsDashboard() {
   ) as MeetingsParams["status"];
 
   const { data: meetingsData, isLoading, isError } = useMeetings(
-    debouncedQuery ? undefined : { status: apiStatus, page, limit: LIMIT }
+    debouncedQuery
+      ? undefined
+      : {
+          status: apiStatus,
+          page,
+          limit: LIMIT,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        },
+    { enabled: !debouncedQuery }
   );
-  const { data: searchData, isLoading: isSearching } = useSearchMeetings(debouncedQuery);
+  const { data: searchData, isLoading: isSearching } = useSearchMeetings(debouncedQuery, {
+    page,
+    limit: LIMIT,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
+  });
 
   // Hitung jumlah rapat per status — pakai endpoint yang sama dengan limit=1
   // supaya payload kecil, "total" sudah dihitung backend sebelum pagination.
@@ -106,10 +127,6 @@ export default function MeetingsDashboard() {
   }));
 
   const loading = isLoading || isSearching;
-
-  const handleDateFilterAttempt = () => {
-    toast.info("Pencarian berdasarkan tanggal belum tersedia — menunggu update dari backend.");
-  };
 
   return (
     <div className="w-full min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
@@ -163,15 +180,69 @@ export default function MeetingsDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDateFilterAttempt}
-              title="Cari berdasarkan tanggal"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-slate-300 transition-all outline-none shadow-sm"
-            >
-              <Calendar size={14} className="text-indigo-500" />
-              <span>Tanggal</span>
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFromDraft(dateFrom);
+                  setDateToDraft(dateTo);
+                  setShowDatePicker((v) => !v);
+                }}
+                title="Cari berdasarkan tanggal"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-slate-300 transition-all outline-none shadow-sm"
+              >
+                <Calendar size={14} className="text-indigo-500" />
+                <span>{dateFrom || dateTo ? `${dateFrom || "…"} – ${dateTo || "…"}` : "Tanggal"}</span>
+              </button>
+              {showDatePicker && (
+                <div className="absolute z-10 mt-2 p-4 bg-white border border-slate-200 rounded-xl shadow-lg space-y-3 w-64">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-slate-500">Dari</label>
+                    <input
+                      type="date"
+                      value={dateFromDraft}
+                      onChange={(e) => setDateFromDraft(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-slate-500">Sampai</label>
+                    <input
+                      type="date"
+                      value={dateToDraft}
+                      onChange={(e) => setDateToDraft(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateFrom("");
+                        setDateTo("");
+                        setDateFromDraft("");
+                        setDateToDraft("");
+                        setShowDatePicker(false);
+                      }}
+                      className="text-[11px] text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 bg-white transition"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateFrom(dateFromDraft);
+                        setDateTo(dateToDraft);
+                        setShowDatePicker(false);
+                      }}
+                      className="text-[11px] text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition"
+                    >
+                      Terapkan
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm font-medium text-slate-600 hover:border-slate-300 transition-all outline-none shadow-sm">
@@ -213,7 +284,7 @@ export default function MeetingsDashboard() {
               ))}
             </div>
 
-            {!debouncedQuery && totalPages > 1 && (
+            {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 pt-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}

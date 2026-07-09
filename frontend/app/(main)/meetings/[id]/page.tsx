@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle } from "lucide-react";
+import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn, isDateOverdue, daysUntil } from "@/lib/utils";
@@ -27,7 +27,7 @@ import TranscriptView from "@/components/notulen/TranscriptView";
 import AttendanceTable from "@/components/meetings/AttendanceTable";
 
 
-import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting } from "@/hooks/useMeeting";
+import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting, useLockAttendance } from "@/hooks/useMeeting";
 import { useUploadRecording, useRecordingStatus, useDeleteRecording } from "@/hooks/useRecording";
 import { useUpdateActionItem, useCreateActionItem } from "@/hooks/useActionItems";
 import { downloadNotulenPdf } from "@/lib/api";
@@ -68,6 +68,7 @@ export default function MeetingDetailPage() {
   const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
   const { mutateAsync: completeMeeting, isPending: isCompleting } = useCompleteMeeting(id);
+  const { mutateAsync: lockAttendance, isPending: isLockingAttendance } = useLockAttendance(id);
 
   // Deteksi apakah user adalah organizer
   // localStorage hanya tersedia di browser (bukan saat SSR)
@@ -125,6 +126,15 @@ export default function MeetingDetailPage() {
     updateAttendance({ participantId, status: newStatus });
   };
 
+  const handleLockAttendance = async () => {
+    try {
+      await lockAttendance();
+      toast.success("Presensi berhasil dikunci.");
+    } catch {
+      toast.error("Gagal mengunci presensi.");
+    }
+  };
+
   const handleToggleTask = (taskId: string | number) => {
     const item = meeting?.action_items?.find((a: ActionItemDTO) => a.id === taskId);
     if (!item) return;
@@ -140,8 +150,12 @@ export default function MeetingDetailPage() {
     }
   };
 
-  const handleEditDueDateAttempt = () => {
-    toast.info("Fitur edit deadline belum tersedia — menunggu update dari backend.");
+  const handleSetDueDate = async (taskId: string | number, dueDate: string | null) => {
+    try {
+      await updateActionItemAsync({ id: String(taskId), dueDate });
+    } catch {
+      toast.error("Gagal ubah deadline. Pastikan kamu adalah organizer.");
+    }
   };
 
   const handleDownloadPdf = async () => {
@@ -264,6 +278,35 @@ export default function MeetingDetailPage() {
               >
                 Edit Rapat
               </Link>
+              {meeting.status === "scheduled" && !meeting.attendance_locked && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="text-xs font-semibold text-indigo-600 border border-indigo-200 px-4 py-2 rounded-xl hover:bg-indigo-50 transition flex items-center gap-1.5">
+                      <Lock size={13} /> Kunci Presensi
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-white border border-slate-200 text-slate-900">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Kunci Presensi Sekarang?</AlertDialogTitle>
+                      <AlertDialogDescription className="text-slate-500">
+                        Peserta yang belum check-in tidak akan bisa check-in lagi setelah ini. Tindakan ini tidak dapat dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-transparent border border-slate-200 text-slate-700 hover:bg-slate-50">
+                        Batalkan
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleLockAttendance}
+                        disabled={isLockingAttendance}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white border-0 disabled:opacity-50"
+                      >
+                        {isLockingAttendance ? "Memproses..." : "Ya, Kunci Presensi"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               {meeting.status === "scheduled" && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -485,7 +528,7 @@ export default function MeetingDetailPage() {
                 participants={participantOptions}
                 onAssign={isOrganizer ? handleAssignTask : undefined}
                 onAdd={isOrganizer ? handleCreateActionItem : undefined}
-                onEditDueDateAttempt={isOrganizer ? handleEditDueDateAttempt : undefined}
+                onSetDueDate={isOrganizer ? handleSetDueDate : undefined}
               />
             </section>
 

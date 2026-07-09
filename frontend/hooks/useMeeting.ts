@@ -5,6 +5,7 @@ import {
   deleteMeeting,
   updateAttendance,
   completeMeeting,
+  lockAttendance,
 } from "@/lib/api";
 
 export function useMeeting(id: string) {
@@ -34,6 +35,16 @@ export function useCompleteMeeting(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", id] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+}
+
+export function useLockAttendance(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => lockAttendance(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meeting", id] });
     },
   });
 }

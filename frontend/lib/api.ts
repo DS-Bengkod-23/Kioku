@@ -42,15 +42,27 @@ export const loginUser = async (credentials: { email: string; password: string }
   localStorage.setItem("access_token", access_token);
   // Set cookie agar middleware bisa baca
   document.cookie = `access_token=${access_token}; path=/; max-age=${7 * 24 * 60 * 60}`;
-  // TODO: aktifkan setelah backend tambahkan field "user" ke login response
-  // if (response.data.user) {
-  //   localStorage.setItem("user_profile", JSON.stringify(response.data.user));
-  // }
   return response.data;
 };
 
 export const registerUser = async (data: { name: string; email: string; password: string }) => {
   const response = await api.post("/auth/register", data);
+  return response.data;
+};
+
+export const getProfile = async () => {
+  const response = await api.get("/auth/me");
+  return response.data;
+};
+
+export const updateProfile = async (data: {
+  name?: string;
+  email?: string;
+  job_title?: string | null;
+  department?: string | null;
+  bio?: string | null;
+}) => {
+  const response = await api.patch("/auth/me", data);
   return response.data;
 };
 
@@ -69,6 +81,8 @@ export interface MeetingsParams {
   page?: number;
   limit?: number;
   status?: "scheduled" | "completed" | "cancelled";
+  date_from?: string;
+  date_to?: string;
 }
 
 export const getMeetings = async (params?: MeetingsParams) => {
@@ -119,7 +133,10 @@ export const completeMeeting = async (id: string) => {
   return response.data;
 };
 
-export const searchMeetings = async (q: string, params?: { page?: number; limit?: number }) => {
+export const searchMeetings = async (
+  q: string,
+  params?: { page?: number; limit?: number; date_from?: string; date_to?: string }
+) => {
   const response = await api.get("/meetings/search", { params: { q, ...params } });
   return response.data;
 };
@@ -216,6 +233,11 @@ export const updateAttendance = async (
   return response.data;
 };
 
+export const lockAttendance = async (meetingId: string) => {
+  const response = await api.patch(`/meetings/${meetingId}/attendance/lock`);
+  return response.data;
+};
+
 // ==========================================
 // ACTION ITEMS
 // ==========================================
@@ -229,7 +251,7 @@ export const getMyActionItems = async (status?: "open" | "done") => {
 
 export const updateActionItem = async (
   id: string,
-  payload: { status?: "open" | "done"; assignee_participant_id?: string | null }
+  payload: { status?: "open" | "done"; assignee_participant_id?: string | null; due_date?: string | null }
 ) => {
   const response = await api.patch(`/action-items/${id}`, payload);
   return response.data;

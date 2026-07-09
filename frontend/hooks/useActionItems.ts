@@ -15,11 +15,13 @@ export function useUpdateActionItem(meetingId?: string) {
       id,
       status,
       assigneeId,
+      dueDate,
     }: {
       id: string;
       status?: "open" | "done";
       assigneeId?: string | null;
-    }) => updateActionItem(id, { status, assignee_participant_id: assigneeId }),
+      dueDate?: string | null;
+    }) => updateActionItem(id, { status, assignee_participant_id: assigneeId, due_date: dueDate }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["action-items"] });
       if (meetingId) {

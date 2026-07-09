@@ -106,6 +106,7 @@ export interface MeetingDetail {
   agenda_text: string | null;
   status: MeetingStatus;
   duration_minutes: number;
+  attendance_locked: boolean;
   organizer: OrganizerResponse;
   participants: ParticipantResponse[];
   recording: RecordingResponse | null;
@@ -127,4 +128,14 @@ export interface MyActionItem {
   due_date: string | null;
   status: ActionItemStatus;
   meeting: MeetingSimple;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  job_title: string | null;
+  department: string | null;
+  bio: string | null;
+  created_at: string;
 }

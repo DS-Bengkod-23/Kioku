@@ -1,5 +1,6 @@
 import uuid
 import logging
+from datetime import date, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
@@ -86,7 +87,15 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
     return meeting
 
 
-def get_meetings(db: Session, user_id: uuid.UUID, page: int = 1, limit: int = 10, status: Optional[str] = None) -> MeetingListResponse:
+def get_meetings(
+    db: Session,
+    user_id: uuid.UUID,
+    page: int = 1,
+    limit: int = 10,
+    status: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> MeetingListResponse:
     query = db.query(Meeting).join(MeetingParticipant, Meeting.id == MeetingParticipant.meeting_id).options(
         joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
         joinedload(Meeting.recording),
@@ -96,6 +105,12 @@ def get_meetings(db: Session, user_id: uuid.UUID, page: int = 1, limit: int = 10
 
     if status:
         query = query.filter(Meeting.status == status)
+
+    if date_from:
+        query = query.filter(Meeting.scheduled_at >= date_from)
+
+    if date_to:
+        query = query.filter(Meeting.scheduled_at < date_to + timedelta(days=1))
 
     total = query.count()
     
@@ -251,7 +266,15 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
     db.commit()
 
 
-def search_meetings(db: Session, user_id: uuid.UUID, query: str, page: int = 1, limit: int = 10) -> MeetingListResponse:
+def search_meetings(
+    db: Session,
+    user_id: uuid.UUID,
+    query: str,
+    page: int = 1,
+    limit: int = 10,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+) -> MeetingListResponse:
     db_query = db.query(Meeting).join(
         MeetingParticipant, Meeting.id == MeetingParticipant.meeting_id
     ).outerjoin(
@@ -273,6 +296,12 @@ def search_meetings(db: Session, user_id: uuid.UUID, query: str, page: int = 1, 
             ActionItem.task.ilike(search_pattern)
         )
     ).distinct()
+
+    if date_from:
+        db_query = db_query.filter(Meeting.scheduled_at >= date_from)
+
+    if date_to:
+        db_query = db_query.filter(Meeting.scheduled_at < date_to + timedelta(days=1))
 
     total = db_query.count()
     offset = (page - 1) * limit

@@ -68,6 +68,11 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
                 raise HTTPException(status_code=400, detail="Participant bukan anggota rapat ini")
         action_item.assignee_participant_id = new_assignee_id
 
+    if "due_date" in update_data:
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail="Hanya organizer yang bisa ubah due date")
+        action_item.due_date = update_data["due_date"]
+
     db.commit()
     db.refresh(action_item)
     return action_item
