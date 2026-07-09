@@ -13,6 +13,9 @@ import { extractApiError } from "@/lib/utils";
 export interface MeetingFormInitialData {
   title: string;
   location: string;
+  locationBuilding?: string;
+  locationRoom?: string;
+  locationCity?: string;
   dateTime: string;
   description: string;
   agenda: string;
@@ -37,6 +40,9 @@ export default function MeetingForm({ mode = "create", meetingId, initialData }:
   const [formData, setFormData] = useState({
     title: initialData?.title ?? "",
     location: initialData?.location ?? "",
+    locationBuilding: initialData?.locationBuilding ?? "",
+    locationRoom: initialData?.locationRoom ?? "",
+    locationCity: initialData?.locationCity ?? "",
     dateTime: initialData?.dateTime ?? "",
     description: initialData?.description ?? "",
     agenda: initialData?.agenda ?? "",
@@ -79,6 +85,9 @@ export default function MeetingForm({ mode = "create", meetingId, initialData }:
       title: formData.title,
       scheduled_at: new Date(formData.dateTime).toISOString(),
       location: formData.location,
+      location_building: formData.locationBuilding || undefined,
+      location_room: formData.locationRoom || undefined,
+      location_city: formData.locationCity || undefined,
       description: formData.description,
       agenda_text: formData.agenda,
       participant_emails: participants,
@@ -181,6 +190,52 @@ export default function MeetingForm({ mode = "create", meetingId, initialData }:
                   <option key={m} value={m}>{m} menit</option>
                 ))}
               </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2 pt-2">
+          <p className="text-[11px] text-slate-500 italic">
+            Opsional — dipakai untuk detail lokasi di PDF notulen resmi.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                <MapPin size={14} className="text-slate-500" /> Gedung
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Gedung G Lantai 1"
+                value={formData.locationBuilding}
+                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                onChange={(e) => setFormData({ ...formData, locationBuilding: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                <MapPin size={14} className="text-slate-500" /> Ruang
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Rapat G1"
+                value={formData.locationRoom}
+                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                onChange={(e) => setFormData({ ...formData, locationRoom: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                <MapPin size={14} className="text-slate-500" /> Kabupaten/Kota
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Semarang"
+                value={formData.locationCity}
+                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                onChange={(e) => setFormData({ ...formData, locationCity: e.target.value })}
+              />
             </div>
           </div>
         </div>
