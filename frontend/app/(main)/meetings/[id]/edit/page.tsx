@@ -59,6 +59,9 @@ export default function EditMeetingPage() {
           initialData={{
             title: meeting.title ?? "",
             location: meeting.location ?? "",
+            locationBuilding: meeting.location_building ?? "",
+            locationRoom: meeting.location_room ?? "",
+            locationCity: meeting.location_city ?? "",
             dateTime: localDateTime,
             description: meeting.description ?? "",
             agenda: meeting.agenda_text ?? "",

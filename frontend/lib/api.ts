@@ -99,6 +99,9 @@ export const createMeeting = async (data: {
   title: string;
   scheduled_at: string;
   location?: string;
+  location_building?: string;
+  location_room?: string;
+  location_city?: string;
   description?: string;
   agenda_text?: string;
   participant_emails: string[];
@@ -114,6 +117,9 @@ export const updateMeeting = async (
     title?: string;
     scheduled_at?: string;
     location?: string;
+    location_building?: string;
+    location_room?: string;
+    location_city?: string;
     description?: string;
     agenda_text?: string;
     participant_emails?: string[];

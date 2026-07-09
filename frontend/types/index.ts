@@ -102,6 +102,9 @@ export interface MeetingDetail {
   title: string;
   scheduled_at: string;
   location: string | null;
+  location_building: string | null;
+  location_room: string | null;
+  location_city: string | null;
   description: string | null;
   agenda_text: string | null;
   status: MeetingStatus;
