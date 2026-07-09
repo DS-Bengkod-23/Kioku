@@ -31,7 +31,7 @@ make build
 ```
 
 Perintah di atas akan menyalakan semua services ini:
-- **Frontend** (Next.js) di `htmake tp://localhost:3000`
+- **Frontend** (Next.js) di `http://localhost:3000`
 - **Backend API** (FastAPI) di `http://localhost:8000`
 - **Mailhog** (Email Dev) di `http://localhost:8025`
 - **MinIO** (S3 Local) di `http://localhost:9001`

@@ -94,6 +94,35 @@ def _section_heading(pdf: NotulenPDF, heading: str) -> None:
     pdf.ln(1)
 
 
+def _wrap_cells(pdf: NotulenPDF, values: list[str], widths: list[int], line_h: int) -> list[list[str]]:
+    return [
+        pdf.multi_cell(w, line_h, str(text), dry_run=True, output=MethodReturnValue.LINES) or [""]
+        for text, w in zip(values, widths)
+    ]
+
+
+def _draw_row(
+    pdf: NotulenPDF,
+    x_start: float,
+    values: list[str],
+    widths: list[int],
+    aligns: list[str],
+    line_h: int,
+    fill: bool,
+) -> None:
+    """Draws one row at the current y position — no page-break handling."""
+    wrapped = _wrap_cells(pdf, values, widths, line_h)
+    row_h = max(len(lines) for lines in wrapped) * line_h
+    y0 = pdf.get_y()
+    x = x_start
+    for lines, w, align in zip(wrapped, widths, aligns):
+        pdf.rect(x, y0, w, row_h, style="DF" if fill else "D")
+        pdf.set_xy(x, y0)
+        pdf.multi_cell(w, line_h, "\n".join(lines), align=align, border=0)
+        x += w
+    pdf.set_xy(x_start, y0 + row_h)
+
+
 def _table_row(
     pdf: NotulenPDF,
     x_start: float,
@@ -102,30 +131,28 @@ def _table_row(
     aligns: list[str] | None = None,
     line_h: int = 6,
     fill: bool = False,
+    header: tuple[list[str], list[str], int, int] | None = None,
 ) -> None:
     """Draws one table row using the font already set by the caller. Long text wraps
     onto extra lines inside its own cell instead of overflowing into the next column;
-    row height grows to fit whichever cell wrapped the most."""
+    row height grows to fit whichever cell wrapped the most. If a page break happens
+    mid-table, `header` — a (values, aligns, header_font_size, body_font_size) tuple —
+    is redrawn first so the new page still shows column labels."""
     aligns = aligns or ["L"] * len(values)
-
-    wrapped = [
-        pdf.multi_cell(w, line_h, str(text), dry_run=True, output=MethodReturnValue.LINES) or [""]
-        for text, w in zip(values, widths)
-    ]
-    row_h = max(len(lines) for lines in wrapped) * line_h
+    row_h = max(len(lines) for lines in _wrap_cells(pdf, values, widths, line_h)) * line_h
 
     if pdf.get_y() + row_h > pdf.page_break_trigger:
         pdf.add_page()
+        if header is not None:
+            h_values, h_aligns, h_size, body_size = header
+            pdf.set_font("DejaVuSans", "B", h_size)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.set_x(x_start)
+            _draw_row(pdf, x_start, h_values, widths, h_aligns, line_h, True)
+            pdf.set_font("DejaVuSans", "", body_size)
+            pdf.set_x(x_start)
 
-    y0 = pdf.get_y()
-    x = x_start
-    for lines, w, align in zip(wrapped, widths, aligns):
-        pdf.rect(x, y0, w, row_h, style="DF" if fill else "D")
-        pdf.set_xy(x, y0)
-        pdf.multi_cell(w, line_h, "\n".join(lines), align=align, border=0)
-        x += w
-
-    pdf.set_xy(x_start, y0 + row_h)
+    _draw_row(pdf, x_start, values, widths, aligns, line_h, fill)
 
 
 def generate_notulen_pdf(
@@ -207,6 +234,8 @@ def generate_notulen_pdf(
 
     peserta_widths = [10, 42, 33, 27, 23, 25, 20]
     peserta_aligns = ["C", "L", "L", "L", "L", "L", "C"]
+    peserta_header_values = ["No", "Nama", "Jabatan", "Unit", "Telepon", "Status", "Paraf"]
+    peserta_header = (peserta_header_values, peserta_aligns, 8, 8)
     table_x = pdf.l_margin + _BODY_INDENT
 
     pdf.set_line_width(0.15)
@@ -214,7 +243,7 @@ def generate_notulen_pdf(
     pdf.set_fill_color(230, 230, 230)
     _table_row(
         pdf, table_x,
-        ["No", "Nama", "Jabatan", "Unit", "Telepon", "Status", "Paraf"],
+        peserta_header_values,
         peserta_widths, aligns=peserta_aligns, fill=True,
     )
 
@@ -226,7 +255,7 @@ def generate_notulen_pdf(
         _table_row(
             pdf, table_x,
             [str(i), name, jabatan, unit, "", _attendance_label(p), ""],
-            peserta_widths, aligns=peserta_aligns,
+            peserta_widths, aligns=peserta_aligns, header=peserta_header,
         )
 
     pdf.ln(6)
@@ -273,6 +302,8 @@ def generate_notulen_pdf(
 
     aksi_widths = [10, 82, 50, 40]
     aksi_aligns = ["C", "L", "L", "L"]
+    aksi_header_values = ["No", "Aksi", "Ditugaskan ke-", "Batas Waktu"]
+    aksi_header = (aksi_header_values, aksi_aligns, 9, 9)
     table_x = pdf.l_margin + _BODY_INDENT
 
     pdf.set_line_width(0.15)
@@ -280,7 +311,7 @@ def generate_notulen_pdf(
     pdf.set_fill_color(230, 230, 230)
     _table_row(
         pdf, table_x,
-        ["No", "Aksi", "Ditugaskan ke-", "Batas Waktu"],
+        aksi_header_values,
         aksi_widths, aligns=aksi_aligns, fill=True,
     )
 
@@ -294,7 +325,7 @@ def generate_notulen_pdf(
             _table_row(
                 pdf, table_x,
                 [str(i), ai.task, pic, due],
-                aksi_widths, aligns=aksi_aligns,
+                aksi_widths, aligns=aksi_aligns, header=aksi_header,
             )
     else:
         pdf.set_x(table_x)
