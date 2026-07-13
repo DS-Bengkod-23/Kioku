@@ -1,9 +1,24 @@
 import os
+import re
+import soundfile as sf
 from google import genai
 try:
     from .schemas import TranscriptResult, TranscriptSegment
 except ImportError:
     from schemas import TranscriptResult, TranscriptSegment
+
+
+def _get_duration(audio_path: str) -> float:
+    try:
+        with sf.SoundFile(audio_path) as f:
+            return len(f) / f.samplerate
+    except Exception:
+        return 0.0
+
+
+def _split_sentences(text: str) -> list[str]:
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s.strip() for s in sentences if s.strip()]
 
 
 def transcribe(audio_path: str) -> TranscriptResult:
@@ -39,17 +54,29 @@ def transcribe(audio_path: str) -> TranscriptResult:
     except Exception as e:
         raise RuntimeError(f"Gemini STT gagal: {e}") from e
 
-    segments = [
-        TranscriptSegment(
+    duration = _get_duration(audio_path)
+    sentences = _split_sentences(full_text)
+
+    if not sentences:
+        sentences = [full_text]
+
+    total_chars = sum(len(s) for s in sentences)
+    segments = []
+    current_time = 0.0
+
+    for sentence in sentences:
+        ratio = len(sentence) / total_chars if total_chars > 0 else 1 / len(sentences)
+        seg_duration = max(duration * ratio, 0.5)
+        segments.append(TranscriptSegment(
             speaker="SPEAKER_00",
-            start=0.0,
-            end=0.0,
-            text=full_text,
-        )
-    ]
+            start=round(current_time, 2),
+            end=round(current_time + seg_duration, 2),
+            text=sentence,
+        ))
+        current_time += seg_duration
 
     return TranscriptResult(
         segments=segments,
         language="id",
-        duration=0.0,
+        duration=duration,
     )
