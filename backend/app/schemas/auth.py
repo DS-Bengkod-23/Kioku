@@ -1,4 +1,6 @@
 from uuid import UUID
+from datetime import datetime
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -27,3 +29,23 @@ class TokenResponse(BaseModel):
     id: UUID
     name: str
     email: str
+
+
+class UserProfileResponse(BaseModel):
+    id: UUID
+    name: str
+    email: str
+    job_title: Optional[str] = None
+    department: Optional[str] = None
+    bio: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    job_title: Optional[str] = None
+    department: Optional[str] = None
+    bio: Optional[str] = None

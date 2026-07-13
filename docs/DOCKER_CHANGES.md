@@ -59,6 +59,19 @@ OPENAI_MODEL: str = "gpt-4o-mini"
 HF_TOKEN: str = ""
 ```
 
+### `backend/app/config.py` (lagi, terpisah dari perubahan LLM_PROVIDER di atas)
+**Sebelum:** `Settings` tidak kenal field `ORG_NAME`, `ORG_LOGO_PATH` — dipakai buat kop surat notulen PDF (redesign format PDF ke format resmi kampus).
+
+**Sesudah:** ditambahkan field berikut (ada default, jadi tidak wajib diisi, tapi PDF tanpa ini cuma tampil "MeetMate" polos tanpa logo):
+```python
+ORG_NAME: str = "MeetMate"
+ORG_LOGO_PATH: str = ""
+```
+
+**Action item buat semua yang sudah punya `.env` lokal** (git tidak akan otomatis update file `.env` kamu — cuma `.env.example` yang ke-track): tambahkan 2 baris ini secara manual ke `.env` kamu sendiri (lihat `.env.example` untuk contoh nilainya), lalu restart `backend-api` (`docker compose restart backend-api` atau `make build` kalau lagi rebuild image juga) supaya kebaca.
+
+Perubahan ini juga menambah 3 kolom baru di tabel `meetings` (`location_building`, `location_room`, `location_city`) lewat migration `a2b3c4d5e6f7_add_structured_location_to_meetings` — jalankan `make migrate` setelah pull.
+
 ### `ml/requirements.txt`
 **Sebelum:** `torch` dan `torchaudio` tanpa spesifikasi — pip download versi CUDA (500MB+) meski tidak ada GPU.
 

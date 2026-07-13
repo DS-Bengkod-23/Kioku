@@ -154,26 +154,25 @@ export default function CheckInPage({ params }: CheckInPageProps) {
       minute: "2-digit",
     });
 
-  const notulenReady =
-    meetingInfo?.processing_status === "done" || meetingInfo?.processing_status === "completed";
+  const notulenReady = meetingInfo?.processing_status === "completed";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-slate-100 sticky top-0 z-10">
-        <div className="max-w-xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
+            <div className="h-7 w-7 rounded-lg bg-indigo-600 flex items-center justify-center">
               <Video size={13} className="text-white" />
             </div>
-            <span className="font-bold text-sm text-slate-900 tracking-wide">MeetMate</span>
+            <span className="font-bold text-sm text-slate-900 tracking-wide">Kioku</span>
           </div>
           <span className="text-xs text-slate-400 font-medium">Portal Peserta</span>
         </div>
       </header>
 
       {/* Main */}
-      <main className="flex-1 max-w-xl mx-auto w-full px-4 py-8 space-y-4">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 space-y-6">
 
         {/* Loading */}
         {initialLoading && (
@@ -200,31 +199,33 @@ export default function CheckInPage({ params }: CheckInPageProps) {
         {!initialLoading && !tokenError && meetingInfo && (
           <>
             {/* Meeting hero card */}
-            <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-500/20 relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, white 0%, transparent 60%)" }} />
-              <div className="relative space-y-3">
-                <p className="text-indigo-200 text-xs font-semibold uppercase tracking-widest">Undangan Rapat</p>
-                <h1 className="text-xl font-bold leading-snug">{meetingInfo.meeting_title}</h1>
-                <div className="flex flex-col gap-1.5 text-sm text-indigo-100">
+            <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8">
+              <div className="space-y-3">
+                <p className="text-indigo-600 text-xs font-semibold uppercase tracking-widest">Undangan Rapat</p>
+                <h1 className="font-display text-xl font-bold leading-snug text-slate-900">{meetingInfo.meeting_title}</h1>
+                <div className="flex flex-col gap-1.5 text-sm text-slate-500">
                   <span className="flex items-center gap-2">
-                    <Clock size={13} className="shrink-0 text-indigo-300" />
+                    <Clock size={13} className="shrink-0 text-indigo-400" />
                     {formatDate(meetingInfo.scheduled_at)}
                   </span>
                   {meetingInfo.location && (
                     <span className="flex items-center gap-2">
-                      <MapPin size={13} className="shrink-0 text-indigo-300" />
+                      <MapPin size={13} className="shrink-0 text-indigo-400" />
                       {meetingInfo.location}
                     </span>
                   )}
                 </div>
-                <div className="pt-2 border-t border-white/20">
-                  <p className="text-sm text-indigo-100">
-                    Halo, <span className="font-bold text-white">{meetingInfo.participant_name}</span>! 👋
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-sm text-slate-600">
+                    Halo, <span className="font-bold text-slate-900">{meetingInfo.participant_name}</span>! 👋
                   </p>
                 </div>
               </div>
             </div>
 
+            {/* Grid 2 kolom: Presensi (kiri) — Notulen + Action Items (kanan) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-1 space-y-6">
             {/* KARTU 1: PRESENSI */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
@@ -256,7 +257,7 @@ export default function CheckInPage({ params }: CheckInPageProps) {
                   <button
                     onClick={handleCheckIn}
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 disabled:opacity-60 text-white font-semibold text-sm py-3.5 px-4 rounded-xl transition-all shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <Loader2 size={16} className="animate-spin" />
@@ -267,7 +268,9 @@ export default function CheckInPage({ params }: CheckInPageProps) {
                 )}
               </div>
             </div>
+              </div>
 
+              <div className="lg:col-span-2 space-y-6">
             {/* KARTU 2: NOTULEN */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
               <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
@@ -425,12 +428,14 @@ export default function CheckInPage({ params }: CheckInPageProps) {
                 )}
               </div>
             </div>
+              </div>
+            </div>
           </>
         )}
       </main>
 
       <footer className="py-5 text-center text-[11px] text-slate-400 border-t border-slate-100 bg-white">
-        © {new Date().getFullYear()} MeetMate Platform
+        © {new Date().getFullYear()} Kioku Platform
       </footer>
     </div>
   );

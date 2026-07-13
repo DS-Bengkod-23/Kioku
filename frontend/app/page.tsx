@@ -159,20 +159,28 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: "Format file apa saja yang didukung oleh MeetMate?",
-      answer: "MeetMate mendukung format audio dan video populer seperti MP3, WAV, M4A, dan MP4 dengan ukuran maksimal 200MB per unggahan.",
+      question: "Format file apa saja yang didukung oleh Kioku?",
+      answer: "Kioku mendukung format audio dan video populer seperti MP3, WAV, M4A, dan MP4 dengan ukuran maksimal 200MB per unggahan.",
     },
     {
       question: "Berapa lama waktu yang dibutuhkan AI untuk memproses rapat?",
       answer: "Rata-rata 15–20% dari durasi rekaman. Rapat 1 jam akan selesai diproses dalam 8–12 menit.",
     },
     {
-      question: "Apakah data rekaman rapat saya aman?",
-      answer: "Sangat aman. MeetMate sepenuhnya self-hosted — data tidak pernah keluar dari server Anda. Tidak ada cloud pihak ketiga yang terlibat.",
+      question: "Apakah Kioku bisa membedakan suara antar pembicara yang berbeda?",
+      answer: "Ya, benar! Kioku dilengkapi dengan fitur Speaker Diarization yang otomatis mendeteksi dan memisahkan transkripsi berdasarkan siapa yang sedang berbicara dalam rapat.",
     },
     {
-      question: "Apakah MeetMate bisa mendeteksi bahasa campuran (Indonesia + Inggris)?",
+      question: "Apakah Kioku bisa mendeteksi bahasa campuran (Indonesia + Inggris)?",
       answer: "Ya! Model Whisper yang kami gunakan sudah dioptimalkan untuk percakapan profesional bahasa Indonesia termasuk istilah teknis bahasa Inggris.",
+    },
+    {
+      question: "Format notulensi apa saja yang dihasilkan oleh Kioku?",
+      answer: "Kioku tidak hanya memberikan transkrip penuh, tetapi juga otomatis menyusun ringkasan rapat (summary), poin-poin keputusan penting, serta daftar tugas (action items) yang harus ditindaklanjuti.",
+    },
+    {
+    question: "Apakah ada batasan durasi untuk rekaman rapat yang diunggah?",
+    answer: "Untuk menjaga performa dan kecepatan pemrosesan AI, batas durasi maksimal untuk satu file rekaman yang diunggah adalah 2 jam.",
     },
   ];
 
@@ -200,12 +208,12 @@ export default function LandingPage() {
     {
       name: "Fajar Nugroho", role: "Project Manager", company: "Pertamina",
       colorIdx: 4,
-      quote: "Sudah 3 bulan pakai MeetMate. Rapat kita rata-rata 45 menit, notulen keluar dalam 7 menit. Tim sekarang nggak ada yang nanya 'notulennya mana?'",
+      quote: "Sudah 3 bulan pakai Kioku. Rapat kita rata-rata 45 menit, notulen keluar dalam 7 menit. Tim sekarang nggak ada yang nanya 'notulennya mana?'",
     },
     {
       name: "Siti Maryam", role: "Co-founder", company: "EdTech Startup",
       colorIdx: 5,
-      quote: "Sebagai startup kecil, kita nggak punya budget buat tools mahal. MeetMate self-hosted ini perfect — bayar server sendiri, data sendiri, kontrol penuh.",
+      quote: "Sebagai startup kecil, kita nggak punya budget buat tools mahal. Kioku self-hosted ini perfect — bayar server sendiri, data sendiri, kontrol penuh.",
     },
   ];
 
@@ -256,7 +264,7 @@ export default function LandingPage() {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
               <Video size={15} className="text-white" />
             </div>
-            <span className="font-bold text-lg tracking-wide text-slate-900">MeetMate</span>
+            <span className="font-bold text-lg tracking-wide text-slate-900">Kioku</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm text-slate-500">
@@ -382,7 +390,7 @@ export default function LandingPage() {
                   <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-100">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded-md bg-gradient-to-br from-indigo-500 to-violet-600" />
-                      <span className="text-xs font-bold text-slate-800">MeetMate</span>
+                      <span className="text-xs font-bold text-slate-800">Kioku</span>
                     </div>
                     <div className="flex gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-400/60" />
@@ -600,9 +608,9 @@ export default function LandingPage() {
       </section>
 
       {/* ── METRICS BAR ── */}
-      <section ref={metricsRef} className="bg-gradient-to-r from-indigo-600 to-violet-700 py-16">
+      <section ref={metricsRef} className="bg-white border-y border-slate-100 py-16">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 text-center text-white">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 text-center">
             {[
               { num: "10×",   label: "lebih cepat dari notulensi manual" },
               { num: "95%+",  label: "akurasi transkripsi bahasa Indonesia" },
@@ -611,8 +619,8 @@ export default function LandingPage() {
             ].map((m, i) => (
               <div key={i} className={metricsVisible ? "animate-slide-up" : "opacity-0"}
                 style={{ animationDelay: `${i * 0.1}s` }}>
-                <p className="text-4xl md:text-5xl font-black mb-2 leading-none">{m.num}</p>
-                <p className="text-indigo-200 text-xs leading-relaxed max-w-[120px] mx-auto">{m.label}</p>
+                <p className="text-4xl md:text-5xl font-black mb-2 leading-none text-indigo-600">{m.num}</p>
+                <p className="text-slate-500 text-xs leading-relaxed max-w-[120px] mx-auto">{m.label}</p>
               </div>
             ))}
           </div>
@@ -660,29 +668,34 @@ export default function LandingPage() {
 
       {/* ── FAQ ── */}
       <section id="faq" className="py-28 bg-slate-50 border-b border-slate-100">
-        <div className="max-w-2xl mx-auto px-6">
-          <div className="text-center mb-12">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="text-center mb-14">
             <p className="text-indigo-600 text-xs font-bold uppercase tracking-widest mb-3">FAQ</p>
-            <h2 className="text-3xl font-extrabold text-slate-900 mb-3">Pertanyaan yang sering muncul</h2>
+            <h2 className="font-display text-3xl font-extrabold text-slate-900 mb-3">Pertanyaan yang sering muncul</h2>
             <p className="text-slate-400 text-sm">Masih ada yang kurang jelas? Langsung aja coba dulu.</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {faqs.map((faq, idx) => (
               <div key={idx}
                 className={`bg-white border rounded-xl overflow-hidden transition-all duration-200 ${activeFaq === idx ? "border-indigo-200 shadow-sm" : "border-slate-200 hover:border-slate-300"}`}>
                 <button
                   onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left gap-4">
-                  <span className={`text-sm font-semibold ${activeFaq === idx ? "text-indigo-700" : "text-slate-700"}`}>
-                    {faq.question}
-                  </span>
+                  className="w-full px-6 py-5 flex items-start justify-between text-left gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`shrink-0 font-display text-xs font-bold mt-0.5 ${activeFaq === idx ? "text-indigo-600" : "text-slate-300"}`}>
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <span className={`text-sm font-semibold ${activeFaq === idx ? "text-indigo-700" : "text-slate-700"}`}>
+                      {faq.question}
+                    </span>
+                  </div>
                   <span className={`shrink-0 h-6 w-6 rounded-full border flex items-center justify-center text-sm font-bold transition-all duration-300 ${activeFaq === idx ? "bg-indigo-50 border-indigo-200 text-indigo-600 rotate-45" : "border-slate-200 text-slate-400"}`}>
                     +
                   </span>
                 </button>
                 <div className={`px-6 transition-all duration-300 ease-in-out overflow-hidden ${activeFaq === idx ? "max-h-40 pb-5" : "max-h-0"}`}>
-                  <p className="text-slate-500 text-sm leading-relaxed">{faq.answer}</p>
+                  <p className="pl-7 text-slate-500 text-sm leading-relaxed">{faq.answer}</p>
                 </div>
               </div>
             ))}
@@ -691,36 +704,29 @@ export default function LandingPage() {
       </section>
 
       {/* ── CTA ── */}
-      <section className="relative bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 py-28 overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-white/5 blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-white/5 blur-3xl -translate-x-1/2 translate-y-1/2 pointer-events-none" />
-        <div className="absolute inset-0 pointer-events-none" style={{
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.07) 1px,transparent 1px)",
-          backgroundSize: "40px 40px",
-        }} />
-
-        <div className="relative max-w-2xl mx-auto px-6 text-center text-white">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full text-xs font-semibold text-indigo-100 mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      <section className="relative bg-white border-y border-slate-100 py-28 overflow-hidden">
+        <div className="relative max-w-2xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1.5 rounded-full text-xs font-semibold text-indigo-600 mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             Gratis · Self-hosted · Open Source
           </div>
-          <h2 className="text-4xl md:text-5xl font-extrabold mb-5 leading-tight">
-            Mulai sekarang —<br />gratis, selamanya.
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-5 leading-tight text-slate-900">
+            Mulai sekarang —<br /><span className="text-indigo-600">gratis, selamanya.</span>
           </h2>
-          <p className="text-indigo-200 mb-10 leading-relaxed">
+          <p className="text-slate-500 mb-10 leading-relaxed">
             Tidak ada biaya per pengguna. Tidak ada data ke cloud.<br />Install sendiri, kontrol penuh.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/register"
-              className="inline-flex items-center justify-center gap-2 bg-white text-indigo-700 hover:bg-indigo-50 font-bold px-8 py-4 rounded-xl transition shadow-xl text-sm">
+              className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700 font-bold px-8 py-4 rounded-xl transition shadow-md shadow-indigo-500/20 text-sm">
               Buat Akun Gratis <ArrowRight size={15} />
             </Link>
             <a href="#cara-kerja"
-              className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-8 py-4 rounded-xl transition text-sm">
+              className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold px-8 py-4 rounded-xl transition text-sm">
               Pelajari Lebih Lanjut
             </a>
           </div>
-          <div className="flex flex-wrap justify-center gap-4 mt-8 text-xs text-indigo-300">
+          <div className="flex flex-wrap justify-center gap-4 mt-8 text-xs text-slate-400">
             {["✓ Self-hosted", "✓ No cloud", "✓ No per-seat fee"].map((t) => (
               <span key={t}>{t}</span>
             ))}
@@ -737,7 +743,7 @@ export default function LandingPage() {
                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
                   <Video size={14} className="text-white" />
                 </div>
-                <span className="font-bold text-base text-white">MeetMate</span>
+                <span className="font-bold text-base text-white">Kioku</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed max-w-xs">
                 Notulensi rapat otomatis dengan AI, sepenuhnya self-hosted. Data tidak pernah keluar dari server kamu.
@@ -762,7 +768,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-slate-600">© {new Date().getFullYear()} MeetMate. Built for teams who value their data.</p>
+            <p className="text-xs text-slate-600">© {new Date().getFullYear()} Kioku. Built for teams who value their data.</p>
             <p className="text-xs text-slate-700">Made with care · 100% self-hosted</p>
           </div>
         </div>

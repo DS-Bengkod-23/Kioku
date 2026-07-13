@@ -4,8 +4,15 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.rate_limit import limiter
-from app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
-from app.services.auth import hash_password, verify_password, create_access_token
+from app.schemas.auth import (
+    UserRegister,
+    UserLogin,
+    UserResponse,
+    TokenResponse,
+    UserProfileResponse,
+    UserProfileUpdateRequest,
+)
+from app.services.auth import hash_password, verify_password, create_access_token, get_current_user, update_profile
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -42,3 +49,17 @@ def login(request: Request, body: UserLogin, db: Session = Depends(get_db)):
         name=user.name,
         email=user.email,
     )
+
+
+@router.get("/me", response_model=UserProfileResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=UserProfileResponse)
+def update_me(
+    body: UserProfileUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return update_profile(db, current_user, body)

@@ -1,17 +1,14 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Square,
   Search,
   Users,
   Video,
   ClipboardList,
-  AlertCircle,
   CheckCircle2,
   Clock,
-  ArrowLeft
 } from "lucide-react";
 import { cn, isDateOverdue } from "@/lib/utils";
 import { useMyActionItems, useUpdateActionItem } from "@/hooks/useActionItems";
@@ -29,7 +26,6 @@ interface UITask {
 }
 
 export default function ActionItemsPage() {
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"Semua" | "Aktif" | "Selesai">("Semua");
@@ -94,39 +90,35 @@ export default function ActionItemsPage() {
 
   return (
     <main className="bg-slate-50 min-h-screen text-slate-900 pb-16 pt-8">
-      <div className="max-w-5xl mx-auto px-6 space-y-8">
+      <div className="max-w-7xl mx-auto px-6 space-y-8">
 
-        <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-900 transition text-xs font-medium mb-4"
-        >
-          <ArrowLeft size={16} />
-          Kembali ke Dashboard
-        </button>
+        {/* HERO: judul + ringkasan stat digabung jadi satu panel */}
+        <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-in fade-in-0 slide-in-from-bottom-3 duration-300">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+              <ClipboardList className="text-indigo-600" size={24} /> Tugas Saya
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Semua action item yang di-assign ke kamu dari seluruh rapat.</p>
+          </div>
 
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <ClipboardList className="text-blue-700" size={26} /> Tugas Saya
-          </h1>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in fade-in-0 slide-in-from-bottom-3 duration-300 delay-75">
-          {[
-            { label: "Total Tugas", val: stats.total, icon: ClipboardList, style: "bg-blue-50 border-blue-200 text-blue-700" },
-            { label: "Tugas Aktif", val: stats.aktif, icon: AlertCircle, style: "bg-amber-50 border-amber-200 text-amber-700" },
-            { label: "Tugas Selesai", val: stats.selesai, icon: CheckCircle2, style: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-          ].map((stat, i) => (
-            <div key={i} className="bg-white border border-slate-200 shadow-sm rounded-2xl p-5 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold text-slate-500 uppercase">{stat.label}</span>
-                <p className="text-3xl font-black text-slate-900">{stat.val}</p>
-              </div>
-              <div className={cn("p-3 rounded-xl border", stat.style)}>
-                <stat.icon size={22} />
-              </div>
+          <div className="flex items-center gap-6 sm:gap-8">
+            <div>
+              <p className="font-display text-4xl font-bold text-indigo-600">{stats.total}</p>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Total Tugas</span>
             </div>
-          ))}
+            <div className="h-10 w-px bg-slate-200 shrink-0" />
+            <div className="flex gap-5 sm:gap-6">
+              {[
+                { label: "Aktif", val: stats.aktif },
+                { label: "Selesai", val: stats.selesai },
+              ].map((stat, i) => (
+                <div key={i}>
+                  <p className="font-display text-xl font-bold text-slate-900">{stat.val}</p>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{stat.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Konten */}
@@ -138,7 +130,7 @@ export default function ActionItemsPage() {
                   key={f}
                   onClick={() => setActiveFilter(f)}
                   className={cn("px-6 py-2 rounded-lg text-xs font-bold transition",
-                    activeFilter === f ? "bg-blue-700 text-white" : "text-slate-500 hover:text-slate-900"
+                    activeFilter === f ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-900"
                   )}
                 >
                   {f}
@@ -148,7 +140,7 @@ export default function ActionItemsPage() {
             <div className="relative w-full md:w-80">
               <Search className="absolute left-3.5 top-3 text-slate-400" size={16} />
               <input
-                className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
+                className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20 transition"
                 placeholder="Cari tugas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -176,7 +168,7 @@ export default function ActionItemsPage() {
                   {item.status === "Selesai" ? (
                     <CheckCircle2 className="text-emerald-400 mt-0.5 shrink-0" size={20} />
                   ) : (
-                    <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-blue-600/40")} size={20} />
+                    <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-indigo-600/40")} size={20} />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-sm font-semibold text-slate-900 truncate", item.status === "Selesai" && "line-through text-slate-500")}>
@@ -187,13 +179,13 @@ export default function ActionItemsPage() {
                       {item.dueDate && (
                         <span className="flex items-center gap-1"><Clock size={12} /> {formatDateDisplay(item.dueDate)}</span>
                       )}
-                      <span className="flex items-center gap-1 bg-blue-50 px-2 py-0.5 rounded text-blue-600 font-medium">
+                      <span className="flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded text-indigo-600 font-medium">
                         <Video size={11} /> {item.meetingTitle}
                       </span>
                       <span className={cn(
                         "px-2 py-0.5 rounded font-bold border text-[10px]",
                         item.status === "Terlambat" && "bg-rose-50 text-rose-600 border-rose-200",
-                        item.status === "Aktif" && "bg-blue-50 text-blue-700 border-blue-200",
+                        item.status === "Aktif" && "bg-indigo-50 text-indigo-700 border-indigo-200",
                         item.status === "Selesai" && "bg-emerald-50 text-emerald-700 border-emerald-200"
                       )}>
                         {item.status}

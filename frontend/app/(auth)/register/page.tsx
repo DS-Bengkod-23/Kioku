@@ -88,7 +88,7 @@ export default function RegisterPage() {
             <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-blue-800 to-blue-600 flex items-center justify-center">
               <div className="h-2 w-2 rounded-full bg-white animate-ping" />
             </div>
-            <span className="font-bold text-base tracking-widest text-slate-900">MEETMATE</span>
+            <span className="font-bold text-base tracking-widest text-slate-900">KIOKU</span>
           </div>
 
           <div className="space-y-4">
@@ -117,7 +117,7 @@ export default function RegisterPage() {
               </div>
             </div>
           </div>
-          <div className="text-[11px] text-slate-500">&copy; {new Date().getFullYear()} MeetMate. All rights reserved.</div>
+          <div className="text-[11px] text-slate-500">&copy; {new Date().getFullYear()} Kioku. All rights reserved.</div>
         </div>
 
         {/* TATA LETAK KANAN: Form Boks */}
@@ -129,7 +129,7 @@ export default function RegisterPage() {
           >
             <div className="mb-8">
               <h2 className="text-2xl font-extrabold tracking-wide text-slate-900">Daftar Akun Baru</h2>
-              <p className="text-xs text-slate-500 mt-2 font-medium">Lengkapi data akun MeetMate Anda</p>
+              <p className="text-xs text-slate-500 mt-2 font-medium">Lengkapi data akun Kioku Anda</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

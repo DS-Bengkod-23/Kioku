@@ -18,6 +18,7 @@ class AssigneeResponse(BaseModel):
 class ActionItemResponse(BaseModel):
     id: UUID
     task: str
+    assignee_participant_id: Optional[UUID] = None
     assignee: Optional[AssigneeResponse] = None
     due_date: Optional[date] = None
     status: ActionItemStatus
@@ -43,6 +44,7 @@ class ActionItemResponse(BaseModel):
         return {
             "id": data.id,
             "task": data.task,
+            "assignee_participant_id": data.assignee_participant_id,
             "assignee": assignee,
             "due_date": data.due_date,
             "status": status,
@@ -51,6 +53,7 @@ class ActionItemResponse(BaseModel):
 class ActionItemUpdateRequest(BaseModel):
     status: Optional[ActionItemStatus] = None
     assignee_participant_id: Optional[UUID] = None
+    due_date: Optional[date] = None
 
 class ActionItemCreateRequest(BaseModel):
     task: str

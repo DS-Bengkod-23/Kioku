@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
                         <div className="h-6 w-6 rounded-lg bg-gradient-to-tr from-blue-800 to-blue-600 flex items-center justify-center">
                             <div className="h-2 w-2 rounded-full bg-white animate-ping" />
                         </div>
-                        <span className="font-bold text-base tracking-widest text-slate-900">MEETMATE</span>
+                        <span className="font-bold text-base tracking-widest text-slate-900">KIOKU</span>
                     </div>
 
                     <div className="space-y-4">
@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="text-[11px] text-slate-500">&copy; {new Date().getFullYear()} MeetMate. All rights reserved.</div>
+                    <div className="text-[11px] text-slate-500">&copy; {new Date().getFullYear()} Kioku. All rights reserved.</div>
                 </div>
 
                 {/* BAGIAN KANAN: Notice */}

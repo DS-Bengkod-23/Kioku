@@ -18,7 +18,7 @@ export default function SummaryCard({ summary }: SummaryCardProps) {
     <div className="space-y-6 text-slate-700">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-4">
-        <Sparkles size={16} className="text-blue-600" />
+        <Sparkles size={16} className="text-indigo-600" />
         <h3 className="text-sm font-bold text-slate-900">Ringkasan Otomatis AI</h3>
       </div>
 
@@ -32,7 +32,7 @@ export default function SummaryCard({ summary }: SummaryCardProps) {
             {summary.topics.map((topic, i) => (
               <span
                 key={i}
-                className="text-[11px] px-2.5 py-1 rounded-full bg-blue-50 border border-slate-200 text-blue-700 font-medium"
+                className="text-[11px] px-2.5 py-1 rounded-full bg-indigo-50 border border-slate-200 text-indigo-700 font-medium"
               >
                 {topic}
               </span>

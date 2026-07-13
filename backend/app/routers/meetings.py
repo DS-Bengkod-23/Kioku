@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import date
 import uuid
 
 from app.database import get_db
@@ -33,20 +34,30 @@ def get_meetings(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     status: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return meeting_service.get_meetings(db, user_id=current_user.id, page=page, limit=limit, status=status)
+    return meeting_service.get_meetings(
+        db, user_id=current_user.id, page=page, limit=limit, status=status,
+        date_from=date_from, date_to=date_to,
+    )
 
 @router.get("/search", response_model=MeetingListResponse)
 def search_meetings(
     q: str,
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return meeting_service.search_meetings(db, user_id=current_user.id, query=q, page=page, limit=limit)
+    return meeting_service.search_meetings(
+        db, user_id=current_user.id, query=q, page=page, limit=limit,
+        date_from=date_from, date_to=date_to,
+    )
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
 def get_meeting(
