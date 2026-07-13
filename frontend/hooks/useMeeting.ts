@@ -5,6 +5,7 @@ import {
   deleteMeeting,
   updateAttendance,
   completeMeeting,
+  lockAttendance,
 } from "@/lib/api";
 
 export function useMeeting(id: string) {
@@ -20,8 +21,8 @@ export function useUpdateMeeting(id: string) {
   return useMutation({
     mutationFn: (data: Parameters<typeof updateMeeting>[1]) =>
       updateMeeting(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["meeting", id] });
+    onSuccess: (updatedMeeting) => {
+      queryClient.setQueryData(["meeting", id], updatedMeeting);
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
     },
   });
@@ -34,6 +35,16 @@ export function useCompleteMeeting(id: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", id] });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+}
+
+export function useLockAttendance(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => lockAttendance(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meeting", id] });
     },
   });
 }

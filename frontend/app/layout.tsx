@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Sora } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import Providers from "./providers";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const sora = Sora({ subsets: ['latin'], variable: '--font-display' });
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -21,8 +22,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "MeetMate",
-  description: "Next.js frontend for MeetMate",
+  title: "Kioku",
+  description: "Next.js frontend for Kioku",
 };
 
 export default function RootLayout({
@@ -31,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", inter.variable)}>
+    <html lang="id" className={cn("font-sans", inter.variable, sora.variable)}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <Toaster theme="light" position="top-center" richColors closeButton />

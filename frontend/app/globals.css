@@ -15,6 +15,7 @@
 @theme {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
 }
 
 :root {

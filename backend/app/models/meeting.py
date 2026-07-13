@@ -25,6 +25,9 @@ class Meeting(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     location: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    location_building: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_room: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_city: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     agenda_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[MeetingStatus] = mapped_column(

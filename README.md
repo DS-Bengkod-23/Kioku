@@ -117,13 +117,19 @@ HF_TOKEN=hf_...             # dari huggingface.co, untuk download model pyannote
 ```
 > Untuk `HF_TOKEN`: daftar di [huggingface.co](https://huggingface.co) → Settings → Access Tokens, lalu accept license model di [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) dan [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0).
 
-Lalu jalankan:
+Lalu jalankan (**hanya sekali di awal**, karena container dan database masih kosong):
 ```bash
 make up && make migrate
 ```
 > Tanpa `make`? `cp .env.example .env` lalu `docker compose up -d && docker compose exec backend-api alembic upgrade head`.
 
 Buka **http://localhost:3000**.
+
+**Run selanjutnya** (container sudah pernah dibuat & migrasi sudah pernah jalan): cukup
+```bash
+make up
+```
+tanpa `make migrate` lagi — skema database sudah tersimpan di volume Postgres dan tidak hilang selama tidak menjalankan `make down-v`. `make migrate` hanya perlu diulang kalau ada migration baru (setelah `git pull` yang membawa file migration baru di `backend/alembic/versions/`).
 
 | Service | URL |
 |---|---|
@@ -135,7 +141,74 @@ Buka **http://localhost:3000**.
 
 Ganti dependency (`requirements.txt`/`package.json`)? Pakai `make build` (atau `docker compose up --build -d`) alih-alih `make up`. Perubahan kode Python/JS biasa tidak perlu rebuild.
 
-**Mau hot-reload untuk development aktif** (kode langsung kepakai tanpa rebuild Docker)? Lihat [Mode Development](docs/DOCKER_WORKFLOW.md#mode-development) di `docs/DOCKER_WORKFLOW.md`.
+### Melihat Logs
+
+```bash
+make logs         # semua service
+make logs-api     # backend API saja
+make logs-worker  # celery worker saja (untuk debug pipeline ML)
+```
+
+### Reset Database
+
+```bash
+make down-v   # stop semua container + hapus volume (wipe DB)
+make up && make migrate   # start fresh
+```
+
+---
+
+## Mode Development (Hot-Reload)
+
+Full Docker di atas kurang nyaman untuk development aktif karena tiap ganti kode perlu rebuild (`make build`). Mode Hybrid ini menjalankan infrastruktur + Celery Worker via Docker, tapi Backend API dan Frontend dijalankan manual di host — jadi hot-reload aktif dan perubahan kode langsung terlihat tanpa rebuild.
+
+**1. Jalankan infrastruktur + Celery Worker** (pertama kali build ~10-15 menit)
+```bash
+make infra
+```
+Postgres, Redis, MinIO, Mailhog naik, sekaligus build & start `celery-worker`. Worker tetap di Docker (bukan lokal) untuk menghindari masalah kompatibilitas DLL ML di Windows.
+
+Ada perubahan di `ml/` atau `backend/requirements.txt`? Rebuild worker saja:
+```bash
+make build-worker
+```
+
+**2. Jalankan Backend API** (terminal baru, dari `backend/`)
+```bash
+cd backend
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+**3. Jalankan Frontend** (terminal baru, dari `frontend/`)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**4. Buka** http://localhost:3000
+
+> Bucket MinIO (`meetmate-recordings`) dibuat otomatis oleh backend saat pertama kali dibutuhkan — tidak perlu setup manual lewat MinIO Console. Model Whisper & pyannote akan otomatis terdownload saat pertama kali memproses recording (~3-4GB), dan butuh `HF_TOKEN` (lihat [Quick Start](#quick-start)).
+
+Detail lebih lengkap: [docs/DOCKER_WORKFLOW.md](docs/DOCKER_WORKFLOW.md#mode-development).
+
+---
+
+## Pre-Commit Hook (Opsional tapi Direkomendasikan)
+
+Agar kode otomatis diformat oleh `ruff` sebelum di-push ke GitHub:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Setelah ini, setiap `git commit` akan otomatis memperbaiki masalah spasi, import tidak terpakai, dll. Bisa juga di-trigger manual:
+```bash
+make pre-commit
+```
 
 ---
 

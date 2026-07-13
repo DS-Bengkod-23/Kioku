@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
     User,
     Mail,
@@ -11,62 +12,96 @@ import {
     Briefcase,
     Calendar
 } from "lucide-react";
-//import { cn } from "@/lib/utils";
+import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+
+interface ProfileFormState {
+    name: string;
+    email: string;
+    job_title: string;
+    department: string;
+    bio: string;
+}
+
+const EMPTY_FORM: ProfileFormState = { name: "", email: "", job_title: "", department: "", bio: "" };
 
 export default function ProfilePage() {
     const router = useRouter();
-    const [mounted, setMounted] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const { data: profile, isLoading, isError } = useProfile();
+    const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
 
-    // 1. State Utama untuk menampung Data Profil
-    const [userData, setUserData] = useState({
-        name: "John Doe",
-        email: "john.doe@company.com",
-        role: "Senior Project Manager",
-        department: "Engineering",
-        joinDate: "Januari 2024",
-        bio: "Berfokus pada efisiensi tim dan optimasi workflow menggunakan teknologi AI."
-    });
+    const [formState, setFormState] = useState<ProfileFormState>(EMPTY_FORM);
 
-    // Temporary state untuk menampung ketikan form sebelum di-save
-    const [formState, setFormState] = useState({ ...userData });
-
-    // 2. Ambil data profil dari localStorage saat komponen pertama kali di-render
+    // Sync form dari data server begitu tersedia (atau saat berubah dari luar edit mode)
     useEffect(() => {
-        setMounted(true);
-        const savedProfile = localStorage.getItem("user_profile");
-        if (savedProfile) {
-            const parsed = JSON.parse(savedProfile);
-            setUserData(parsed);
-            setFormState(parsed);
+        if (profile && !isEditing) {
+            setFormState({
+                name: profile.name ?? "",
+                email: profile.email ?? "",
+                job_title: profile.job_title ?? "",
+                department: profile.department ?? "",
+                bio: profile.bio ?? "",
+            });
         }
-    }, []);
+    }, [profile, isEditing]);
 
-    // 3. Fungsi penangan perubahan teks pada form input
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, key: string) => {
-        setFormState(prev => ({
-            ...prev,
-            [key]: e.target.value
-        }));
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, key: keyof ProfileFormState) => {
+        setFormState(prev => ({ ...prev, [key]: e.target.value }));
     };
 
-    // 4. Fungsi tombol Batal (mengembalikan form ke data asli)
     const handleCancel = () => {
-        setFormState({ ...userData });
+        if (profile) {
+            setFormState({
+                name: profile.name ?? "",
+                email: profile.email ?? "",
+                job_title: profile.job_title ?? "",
+                department: profile.department ?? "",
+                bio: profile.bio ?? "",
+            });
+        }
         setIsEditing(false);
     };
 
-    // 5. Fungsi tombol Simpan Perubahan (Commit ke LocalStorage & State)
     const handleSave = () => {
-        setUserData(formState);
-        localStorage.setItem("user_profile", JSON.stringify(formState));
-        setIsEditing(false);
-
-        // Memicu custom event agar Layout Navbar langsung ikut ter-update saat itu juga
-        window.dispatchEvent(new Event("profileUpdate"));
+        updateProfile(formState, {
+            onSuccess: (data) => {
+                localStorage.setItem("user_profile", JSON.stringify(data));
+                window.dispatchEvent(new Event("profileUpdate"));
+                setIsEditing(false);
+                toast.success("Profil berhasil disimpan.");
+            },
+            onError: () => {
+                toast.error("Gagal menyimpan profil. Coba lagi.");
+            },
+        });
     };
 
-    if (!mounted) return null;
+    const joinDate = profile?.created_at
+        ? new Date(profile.created_at).toLocaleDateString("id-ID", { month: "long", year: "numeric" })
+        : "–";
+
+    if (isLoading) {
+        return (
+            <main className="bg-slate-50 min-h-screen text-slate-900 pb-16 pt-8">
+                <div className="max-w-5xl mx-auto px-6 space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        <div className="lg:col-span-4 h-72 rounded-2xl bg-slate-200/70 animate-pulse" />
+                        <div className="lg:col-span-8 h-72 rounded-2xl bg-slate-200/70 animate-pulse" />
+                    </div>
+                </div>
+            </main>
+        );
+    }
+
+    if (isError || !profile) {
+        return (
+            <main className="bg-slate-50 min-h-screen text-slate-900 pb-16 pt-8">
+                <div className="max-w-5xl mx-auto px-6">
+                    <p className="text-center text-rose-400 py-10 text-sm">Gagal memuat profil. Pastikan backend sudah berjalan.</p>
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main className="bg-slate-50 min-h-screen text-slate-900 pb-16 pt-8">
@@ -92,29 +127,31 @@ export default function ProfilePage() {
                     <div className="lg:col-span-4 space-y-6">
                         <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-8 text-center space-y-5">
                             <div className="relative inline-block">
-                                <div className="w-32 h-32 rounded-full border-2 border-blue-200 p-1 mx-auto overflow-hidden">
-                                    <div className="w-full h-full rounded-full bg-blue-50 flex items-center justify-center">
-                                        <User size={60} className="text-blue-600" />
+                                <div className="w-32 h-32 rounded-full border-2 border-indigo-200 p-1 mx-auto overflow-hidden">
+                                    <div className="w-full h-full rounded-full bg-indigo-50 flex items-center justify-center">
+                                        <User size={60} className="text-indigo-600" />
                                     </div>
                                 </div>
-                                <button className="absolute bottom-1 right-1 p-2 bg-blue-700 rounded-full text-white hover:bg-blue-800 transition shadow-md">
+                                <button className="absolute bottom-1 right-1 p-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-700 transition shadow-md">
                                     <Camera size={16} />
                                 </button>
                             </div>
 
                             <div>
-                                <h2 className="text-xl font-bold text-slate-900">{userData.name}</h2>
-                                <p className="text-sm text-slate-500">{userData.role}</p>
+                                <h2 className="text-xl font-bold text-slate-900">{profile.name}</h2>
+                                {profile.job_title && <p className="text-sm text-slate-500">{profile.job_title}</p>}
                             </div>
 
                             <div className="pt-4 border-t border-slate-200 space-y-3">
+                                {profile.department && (
+                                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                                        <Briefcase size={14} className="text-indigo-600" />
+                                        <span>{profile.department}</span>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-3 text-xs text-slate-500">
-                                    <Briefcase size={14} className="text-blue-600" />
-                                    <span>{userData.department}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-xs text-slate-500">
-                                    <Calendar size={14} className="text-blue-600" />
-                                    <span>Bergabung {userData.joinDate}</span>
+                                    <Calendar size={14} className="text-indigo-600" />
+                                    <span>Bergabung {joinDate}</span>
                                 </div>
                             </div>
                         </div>
@@ -128,7 +165,7 @@ export default function ProfilePage() {
                                 {!isEditing && (
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="text-xs font-bold text-blue-700 hover:text-blue-900 transition"
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
                                     >
                                         Edit Profil
                                     </button>
@@ -143,7 +180,7 @@ export default function ProfilePage() {
                                         <User className="absolute left-3 top-3 text-slate-400" size={16} />
                                         <input
                                             disabled={!isEditing}
-                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
+                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
                                             value={formState.name}
                                             onChange={(e) => handleInputChange(e, "name")}
                                         />
@@ -157,7 +194,7 @@ export default function ProfilePage() {
                                         <Mail className="absolute left-3 top-3 text-slate-400" size={16} />
                                         <input
                                             disabled={!isEditing}
-                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
+                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
                                             value={formState.email}
                                             onChange={(e) => handleInputChange(e, "email")}
                                         />
@@ -171,9 +208,9 @@ export default function ProfilePage() {
                                         <Shield className="absolute left-3 top-3 text-slate-400" size={16} />
                                         <input
                                             disabled={!isEditing}
-                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
-                                            value={formState.role}
-                                            onChange={(e) => handleInputChange(e, "role")}
+                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
+                                            value={formState.job_title}
+                                            onChange={(e) => handleInputChange(e, "job_title")}
                                         />
                                     </div>
                                 </div>
@@ -185,7 +222,7 @@ export default function ProfilePage() {
                                         <Briefcase className="absolute left-3 top-3 text-slate-400" size={16} />
                                         <input
                                             disabled={!isEditing}
-                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
+                                            className="w-full bg-white border border-slate-300 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition disabled:opacity-50 disabled:bg-slate-50"
                                             value={formState.department}
                                             onChange={(e) => handleInputChange(e, "department")}
                                         />
@@ -198,7 +235,7 @@ export default function ProfilePage() {
                                     <textarea
                                         disabled={!isEditing}
                                         rows={3}
-                                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition disabled:opacity-50 disabled:bg-slate-50 resize-none"
+                                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition disabled:opacity-50 disabled:bg-slate-50 resize-none"
                                         value={formState.bio}
                                         onChange={(e) => handleInputChange(e, "bio")}
                                     />
@@ -210,15 +247,17 @@ export default function ProfilePage() {
                                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                                     <button
                                         onClick={handleCancel}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 border border-slate-200 transition"
+                                        disabled={isSaving}
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 border border-slate-200 transition disabled:opacity-50"
                                     >
                                         Batal
                                     </button>
                                     <button
                                         onClick={handleSave}
-                                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-blue-700 text-white hover:bg-blue-800 transition shadow-sm"
+                                        disabled={isSaving}
+                                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
                                     >
-                                        Simpan Perubahan
+                                        {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
                                     </button>
                                 </div>
                             )}

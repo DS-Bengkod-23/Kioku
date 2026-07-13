@@ -19,7 +19,7 @@ interface TranscriptViewProps {
 const getSpeakerStyle = (speakerId: string) => {
   switch (speakerId) {
     case "SPEAKER_00":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "bg-indigo-50 text-indigo-700 border-indigo-200";
     case "SPEAKER_01":
       return "bg-violet-50 text-violet-700 border-violet-200";
     case "SPEAKER_02":
@@ -53,7 +53,7 @@ export default function TranscriptView({ lines }: TranscriptViewProps) {
             placeholder="Cari dalam transkrip..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition"
+            className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/20 transition"
           />
         </div>
       </div>

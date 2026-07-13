@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     BACKEND_BASE_URL: str = "http://localhost:8000"
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # Branding (notulen PDF header)
+    ORG_NAME: str = "UNIVERSITAS DIAN NUSWANTORO"
+    ORG_LOGO_PATH: str = "assets/logo.png"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
