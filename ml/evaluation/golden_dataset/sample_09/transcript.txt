@@ -1,0 +1,7 @@
+Karin: Hai semua. Kita mau review fitur checkout yang akan dirilis minggu depan. Ilham, hasil testing-nya bagaimana?
+Ilham: Secara keseluruhan sudah cukup baik. Tapi ada dua bug minor yang masih perlu diperbaiki, terutama di flow pembayaran dengan metode transfer bank.
+Sinta: Bug yang mana, Il? Yang soal timeout atau yang tampilan konfirmasi?
+Ilham: Dua-duanya, Sin. Yang timeout terjadi kalau user terlalu lama di halaman konfirmasi, dan yang konfirmasi terkadang tidak muncul meski transaksi berhasil.
+Sinta: Oke, timeout bisa saya fix hari ini. Yang konfirmasi perlu saya cek lebih dalam, mungkin butuh satu hari lagi.
+Karin: Kalau bisa beres Selasa, kita masih aman untuk release Jumat. Ilham, setelah Sinta fix, langsung regression test ya.
+Ilham: Siap, Karin. Begitu ada build baru saya langsung jalankan test suite-nya.

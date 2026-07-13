@@ -1,0 +1,22 @@
+[
+  {
+    "task": "kirim kontak pengelola gedung ke Surya",
+    "assignee_name": "Wati",
+    "due_date_text": null
+  },
+  {
+    "task": "hubungi pihak pengelola gedung untuk percepat izin akses",
+    "assignee_name": "Surya",
+    "due_date_text": null
+  },
+  {
+    "task": "mulai instalasi di tiga lokasi yang sudah siap",
+    "assignee_name": "Dedi",
+    "due_date_text": null
+  },
+  {
+    "task": "update progress kepada Surya setiap sore",
+    "assignee_name": "Dedi",
+    "due_date_text": null
+  }
+]

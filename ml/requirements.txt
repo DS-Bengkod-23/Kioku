@@ -2,7 +2,7 @@
 # Install via: conda install -c conda-forge ffmpeg
 # atau download di https://ffmpeg.org/download.html dan tambah ke PATH
 
-openai-whisper>=20231117
+google-genai>=1.0.0
 pyannote.audio>=3.1.0
 openai>=1.0.0
 python-dotenv>=1.0.0

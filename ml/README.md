@@ -10,7 +10,7 @@ Speech-to-text, diarization, dan LLM extraction untuk MeetMate.
 
 - **Whisper large-v3** - transcription (speech to text)
 - **pyannote.audio** - speaker diarization
-- **Hybrid LLM (OpenAI API / Ollama qwen2.5:7b)** - summary + action item extraction
+- **Gemini API** - transcription (speech to text), summary, dan action item extraction
 
 ---
 
@@ -52,27 +52,16 @@ Whisper butuh `ffmpeg` untuk membaca file audio. Tanpa ini akan muncul `[WinErro
 pip install -r requirements.txt
 ```
 
-**2. Konfigurasi LLM Provider**
+**2. Konfigurasi Gemini API**
 
-Set di file `.env` di root repo (pilih salah satu):
+Set di file `.env` di root repo:
 
 ```env
-# Opsi A: OpenAI API (rekomendasi, tidak perlu GPU)
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
-
-# Opsi B: Ollama lokal (butuh GPU, gratis)
-LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:7b
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
-Jika pakai Ollama, install dan jalankan dulu di host machine:
-```bash
-ollama pull qwen2.5:7b
-ollama serve
-```
+Dipakai bareng oleh `transcribe.py`, `extract_summary()`, dan `extract_action_items()`.
 
 **3. Pyannote setup**
 

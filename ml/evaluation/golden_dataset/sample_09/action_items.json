@@ -1,0 +1,17 @@
+[
+  {
+    "task": "fix bug timeout di halaman konfirmasi pembayaran",
+    "assignee_name": "Sinta",
+    "due_date_text": "hari ini"
+  },
+  {
+    "task": "fix bug tampilan konfirmasi yang tidak muncul setelah transaksi berhasil",
+    "assignee_name": "Sinta",
+    "due_date_text": "Selasa"
+  },
+  {
+    "task": "jalankan regression test setelah Sinta fix bug",
+    "assignee_name": "Ilham",
+    "due_date_text": "Selasa"
+  }
+]

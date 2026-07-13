@@ -1,0 +1,22 @@
+[
+  {
+    "task": "push hotfix bug notifikasi",
+    "assignee_name": "Yogi",
+    "due_date_text": "besok sore"
+  },
+  {
+    "task": "balas semua tiket keluhan dengan informasi update perbaikan",
+    "assignee_name": "Rina",
+    "due_date_text": null
+  },
+  {
+    "task": "tawarkan perpanjangan berlangganan satu minggu untuk pelanggan premium yang terdampak",
+    "assignee_name": "Rina",
+    "due_date_text": null
+  },
+  {
+    "task": "kabari Tono begitu hotfix live",
+    "assignee_name": "Yogi",
+    "due_date_text": null
+  }
+]

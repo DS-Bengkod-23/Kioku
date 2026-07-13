@@ -1,0 +1,17 @@
+[
+  {
+    "task": "buat laporan tertulis soal vendor alternatif",
+    "assignee_name": "Reza",
+    "due_date_text": null
+  },
+  {
+    "task": "revisi anggaran logistik dengan buffer tambahan 10%",
+    "assignee_name": "Sari",
+    "due_date_text": "akhir minggu ini"
+  },
+  {
+    "task": "kirimkan daftar vendor baru",
+    "assignee_name": "Reza",
+    "due_date_text": "Kamis"
+  }
+]

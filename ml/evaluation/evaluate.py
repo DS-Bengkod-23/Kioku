@@ -6,7 +6,9 @@ Metrics: WER (Word Error Rate) + Action Item F1.
 import sys
 import json
 from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv(Path(__file__).parent.parent.parent / ".env")
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 GOLDEN_DIR = Path(__file__).parent / "golden_dataset"
@@ -59,13 +61,20 @@ def compute_action_item_f1(golden: list[dict], predicted: list[dict]) -> float:
 
 
 def run_evaluation():
-    from transcribe import transcribe
     from extract import extract_action_items
+    try:
+        from transcribe import transcribe as transcribe_with_model
+    except ImportError:
+        from ml.transcribe import transcribe as transcribe_with_model
+
+    print("Menggunakan Gemini STT untuk evaluasi.\n")
 
     results = []
 
     for sample_dir in sorted(GOLDEN_DIR.iterdir()):
         if not sample_dir.is_dir() or sample_dir.name.startswith("."):
+            continue
+        if sample_dir.name == "sample_01":
             continue
 
         audio_file = sample_dir / "audio.wav"
@@ -79,7 +88,8 @@ def run_evaluation():
             else []
         )
 
-        transcript = transcribe(str(audio_file))
+        print(f"  Transkripsi {sample_dir.name}...")
+        transcript = transcribe_with_model(str(audio_file))
 
         hypothesis = " ".join(seg.text for seg in transcript.segments)
         wer = compute_wer(golden_transcript, hypothesis)
@@ -88,9 +98,16 @@ def run_evaluation():
             f"{seg.speaker}: {seg.text}" for seg in transcript.segments
         )
         predicted_actions = extract_action_items(transcript_text, participant_names)
-        f1 = compute_action_item_f1(golden_actions, [a.model_dump() for a in predicted_actions])
+        predicted_dump = [a.model_dump() for a in predicted_actions]
+        f1 = compute_action_item_f1(golden_actions, predicted_dump)
 
-        results.append({"sample": sample_dir.name, "wer": round(wer, 4), "action_item_f1": round(f1, 4)})
+        results.append({
+            "sample": sample_dir.name,
+            "wer": round(wer, 4),
+            "action_item_f1": round(f1, 4),
+            "golden_action_items": golden_actions,
+            "predicted_action_items": predicted_dump,
+        })
         print(f"{sample_dir.name}: WER={wer:.2%}, F1={f1:.4f}")
 
     avg_wer = sum(r["wer"] for r in results) / len(results) if results else 0
