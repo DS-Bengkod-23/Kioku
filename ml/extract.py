@@ -1,6 +1,7 @@
 import os
 import json
 from pathlib import Path
+from openai import OpenAI
 from google import genai
 from google.genai import types as genai_types
 try:
@@ -15,7 +16,26 @@ def _load_prompt(name: str) -> str:
     return (PROMPTS_DIR / name).read_text(encoding="utf-8")
 
 
-def _complete(prompt: str) -> str:
+def _complete_openai(prompt: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY tidak ditemukan di environment")
+
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        raise RuntimeError(f"OpenAI tidak bisa diakses: {e}") from e
+
+
+def _complete_gemini(prompt: str) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY tidak ditemukan di environment")
@@ -32,6 +52,13 @@ def _complete(prompt: str) -> str:
         return response.text.strip()
     except Exception as e:
         raise RuntimeError(f"Gemini tidak bisa diakses: {e}") from e
+
+
+def _complete(prompt: str) -> str:
+    provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    if provider == "gemini":
+        return _complete_gemini(prompt)
+    return _complete_openai(prompt)
 
 
 def extract_summary(transcript_text: str) -> SummaryResult:
@@ -59,8 +86,10 @@ def extract_action_items(
     raw = _complete(prompt)
 
     try:
-        items = json.loads(raw)
+        data = json.loads(raw)
     except json.JSONDecodeError as e:
         raise ValueError(f"Output LLM bukan JSON valid: {e}") from e
+
+    items = data.get("action_items", []) if isinstance(data, dict) else data
 
     return [ActionItem(**item) for item in items]
