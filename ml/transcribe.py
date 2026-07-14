@@ -166,7 +166,6 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
         duration=duration,
     )
 
-
 def transcribe(audio_path: str) -> TranscriptResult:
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path}")

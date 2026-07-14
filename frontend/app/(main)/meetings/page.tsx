@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search, Filter, Plus, ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import MeetingCard from "@/components/meetings/MeetingCard";
+import DatePicker from "@/components/notulen/DatePicker";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -198,20 +199,24 @@ export default function MeetingsDashboard() {
                 <div className="absolute z-10 mt-2 p-4 bg-white border border-slate-200 rounded-xl shadow-lg space-y-3 w-64">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">Dari</label>
-                    <input
-                      type="date"
-                      value={dateFromDraft}
-                      onChange={(e) => setDateFromDraft(e.target.value)}
-                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    <DatePicker
+                      value={dateFromDraft || null}
+                      onChange={(v) => setDateFromDraft(v ?? "")}
+                      variant="field"
+                      fullWidth
+                      allowClear={false}
+                      className="w-full"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-semibold text-slate-500">Sampai</label>
-                    <input
-                      type="date"
-                      value={dateToDraft}
-                      onChange={(e) => setDateToDraft(e.target.value)}
-                      className="w-full text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    <DatePicker
+                      value={dateToDraft || null}
+                      onChange={(v) => setDateToDraft(v ?? "")}
+                      variant="field"
+                      fullWidth
+                      allowClear={false}
+                      className="w-full"
                     />
                   </div>
                   <div className="flex gap-2 justify-end pt-1">
