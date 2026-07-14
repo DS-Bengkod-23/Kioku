@@ -72,24 +72,11 @@ npx shadcn-ui@latest add <component-name>
 ```
 
 ### ML Pipeline Setup
-We support a **Hybrid LLM Provider** (OpenAI API or Local Ollama). Configure it in `.env`:
-
-**Option A: OpenAI (Default)**
+Transcription, summary, and action item extraction all run on the **Gemini API**. Configure it in `.env`:
 ```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
-
-**Option B: Local Ollama (Requires GPU)**
-```env
-LLM_PROVIDER=ollama
-```
-Ollama must run natively on the host machine to access the GPU.
-```bash
-ollama pull qwen2.5:7b
-ollama serve                    # ensure it is running
-```
-The Dockerized celery worker will access it via `http://host.docker.internal:11434`.
 
 ---
 
@@ -106,18 +93,17 @@ The Dockerized celery worker will access it via `http://host.docker.internal:114
 | Redis | 6379 | Celery broker + result backend |
 | MinIO | 9000/9001 | Local file storage (S3-compatible) |
 | Mailhog | 8025 | Email preview in dev |
-| Ollama | 11434 | Local LLM inference |
 
 ### Data Flow for Recording Processing
 
 1. Organizer uploads audio → `POST /meetings/:id/recording`
 2. Backend saves file to MinIO, enqueues Celery task
 3. Celery worker calls ML pipeline in sequence:
-   - `transcribe(audio_path)` → Whisper large-v3
+   - `transcribe(audio_path)` → Gemini API (audio upload + transcription)
    - `diarize(audio_path)` → pyannote.audio
    - `merge_transcript_diarization(transcript, diarization)`
-   - `extract_summary(transcript_text)` → Ollama qwen2.5:7b
-   - `extract_action_items(transcript_text, participant_names)` → Ollama
+   - `extract_summary(transcript_text)` → Gemini API
+   - `extract_action_items(transcript_text, participant_names)` → Gemini API
 4. Results saved to DB (Transcript, Summary, ActionItem tables)
 5. Email distributed to all participants automatically
 

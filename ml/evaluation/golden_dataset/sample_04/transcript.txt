@@ -1,0 +1,7 @@
+Hendra: Selamat pagi. Agenda kita hari ini adalah membahas program pelatihan untuk karyawan baru yang akan bergabung bulan depan. Maya, sudah ada rancangan programnya?
+Maya: Sudah, Pak Hendra. Saya sudah buat modul onboarding selama tiga hari. Hari pertama orientasi perusahaan, hari kedua pelatihan sistem internal, dan hari ketiga simulasi kerja.
+Fajar: Untuk simulasi kerjanya, apakah sudah disesuaikan dengan masing-masing divisi? Karena kebutuhan divisi saya cukup teknis, jadi materinya perlu lebih spesifik.
+Maya: Belum, Pak Fajar. Justru saya butuh masukan dari tiap kepala divisi untuk bagian itu. Kalau berkenan, bisa kirimkan poin-poin materi yang dianggap penting?
+Hendra: Setuju. Fajar, bisa minta tolong dikirim ke Maya paling lambat hari Jumat?
+Fajar: Bisa, Pak. Nanti saya koordinasikan dengan tim saya lebih dulu.
+Hendra: Baik, kita sepakat. Program onboarding ini harus siap dua minggu sebelum karyawan baru masuk. Terima kasih semuanya.

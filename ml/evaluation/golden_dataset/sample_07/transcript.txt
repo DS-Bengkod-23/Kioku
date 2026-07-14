@@ -1,0 +1,7 @@
+Pak Wahyu: Selamat pagi. Hari ini kita finalisasi rancangan anggaran tahun depan. Ibu Citra, bisa presentasikan ringkasannya?
+Ibu Citra: Tentu, Pak. Total anggaran yang diajukan naik 8% dari tahun ini. Kenaikan terbesar ada di investasi infrastruktur teknologi dan rekrutmen tenaga ahli baru.
+Bram: Dari sisi operasional, saya usulkan ada alokasi khusus untuk pemeliharaan gudang yang sudah lama tertunda. Estimasi biayanya sekitar 150 juta.
+Pak Wahyu: Apakah itu sudah masuk dalam draft anggaran, Bu Citra?
+Ibu Citra: Belum, Pak. Saya masukkan sebagai item tambahan. Dengan itu total kenaikan jadi sekitar 11%.
+Bram: Saya bisa kurangi sedikit permintaan anggaran operasional lain kalau memang perlu diseimbangkan, Pak.
+Pak Wahyu: Mari kita lihat angka detailnya bersama. Bu Citra, tolong kirim revisi spreadsheet-nya ke saya dan Bram sore ini. Kita sepakati finalnya via email sebelum akhir minggu.
