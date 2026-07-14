@@ -1,11 +1,27 @@
 import os
 import re
+import time
 import soundfile as sf
 from google import genai
+from google.genai import types
 try:
     from .schemas import TranscriptResult, TranscriptSegment
 except ImportError:
     from schemas import TranscriptResult, TranscriptSegment
+
+
+# Ekstensi diaudio ini semua audio-only, tapi mimetypes stdlib nebak .mp4 sebagai
+# "video/mp4" secara default — kalau dibiarkan, Gemini nyoba proses filenya sebagai
+# video dan gagal internal (code=13) karena nggak ada video stream sama sekali.
+_AUDIO_MIME_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".mp4": "audio/mp4",
+    ".m4a": "audio/mp4",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+    ".webm": "audio/webm",
+}
 
 
 def _get_duration(audio_path: str) -> float:
@@ -36,8 +52,26 @@ def transcribe(audio_path: str) -> TranscriptResult:
     model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 
     try:
+        ext = os.path.splitext(audio_path)[1].lower()
+        mime_type = _AUDIO_MIME_TYPES.get(ext, "audio/mpeg")
+
         client = genai.Client(api_key=api_key)
-        audio_file = client.files.upload(file=audio_path)
+        audio_file = client.files.upload(
+            file=audio_path,
+            config=types.UploadFileConfig(mimeType=mime_type),
+        )
+
+        waited = 0
+        while audio_file.state.name == "PROCESSING":
+            if waited >= 120:
+                raise RuntimeError("Timeout menunggu file selesai diproses Gemini")
+            time.sleep(2)
+            waited += 2
+            audio_file = client.files.get(name=audio_file.name)
+
+        if audio_file.state.name == "FAILED":
+            detail = getattr(audio_file, "error", None)
+            raise RuntimeError(f"Gemini gagal memproses file audio yang diupload: {detail}")
 
         prompt = (
             "Transcribe this audio recording accurately and completely. "

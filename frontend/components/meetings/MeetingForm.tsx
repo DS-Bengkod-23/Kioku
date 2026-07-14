@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useCreateMeeting } from "@/hooks/useMeetings";
 import { useUpdateMeeting } from "@/hooks/useMeeting";
 import { FormError } from "@/components/ui/form-error";
+import DatePicker from "@/components/notulen/DatePicker";
 import { extractApiError } from "@/lib/utils";
 
 export interface MeetingFormInitialData {
@@ -74,6 +75,11 @@ export default function MeetingForm({ mode = "create", meetingId, initialData }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!formData.dateTime) {
+      setFormError("Jadwal & waktu pelaksanaan wajib diisi.");
+      return;
+    }
 
     const totalMinutes = formData.durationHours * 60 + formData.durationMins;
     if (totalMinutes === 0) {
@@ -158,12 +164,15 @@ export default function MeetingForm({ mode = "create", meetingId, initialData }:
             <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
               <Calendar size={14} className="text-slate-500" /> Jadwal & Waktu Pelaksanaan <span className="text-blue-600">*</span>
             </label>
-            <input
-              type="datetime-local"
-              required
-              value={formData.dateTime}
-              className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-slate-900 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all [color-scheme:light]"
-              onChange={(e) => setFormData({ ...formData, dateTime: e.target.value })}
+            <DatePicker
+              value={formData.dateTime || null}
+              onChange={(v) => setFormData({ ...formData, dateTime: v ?? "" })}
+              variant="field"
+              withTime
+              allowClear={false}
+              fullWidth
+              placeholder="Pilih tanggal & waktu"
+              className="w-full px-4 py-3 rounded-xl border-slate-300 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20"
             />
           </div>
 

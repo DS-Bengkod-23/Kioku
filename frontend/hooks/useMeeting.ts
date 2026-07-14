@@ -6,6 +6,7 @@ import {
   updateAttendance,
   completeMeeting,
   lockAttendance,
+  confirmCheckin,
 } from "@/lib/api";
 
 export function useMeeting(id: string) {
@@ -69,6 +70,19 @@ export function useUpdateAttendance(meetingId: string) {
       participantId: string;
       status: "pending" | "hadir" | "tidak_hadir";
     }) => updateAttendance(meetingId, participantId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
+    },
+  });
+}
+
+// Presensi mandiri oleh peserta yang login lewat akunnya sendiri, dengan menggunakan
+// checkin_token milik mereka sendiri (dari participants[]) — reuse endpoint check-in
+// yang sama dengan portal magic-link, jadi tidak perlu endpoint backend baru.
+export function useSelfCheckIn(meetingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (checkinToken: string) => confirmCheckin(checkinToken),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
     },
