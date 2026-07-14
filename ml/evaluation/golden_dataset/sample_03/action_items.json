@@ -1,0 +1,17 @@
+[
+  {
+    "task": "tanyakan brand guideline kepada klien saat meeting",
+    "assignee_name": "Lina",
+    "due_date_text": "minggu depan"
+  },
+  {
+    "task": "setup struktur project dan environment",
+    "assignee_name": "Andi",
+    "due_date_text": null
+  },
+  {
+    "task": "riset referensi desain yang relevan dengan industri klien",
+    "assignee_name": "Lina",
+    "due_date_text": null
+  }
+]

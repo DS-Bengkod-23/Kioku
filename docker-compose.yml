@@ -70,7 +70,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U meetmate"]
+      test: [ "CMD-SHELL", "pg_isready -U meetmate" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -85,7 +85,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-devredispass}", "--no-auth-warning", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -104,7 +104,7 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -114,8 +114,8 @@ services:
     container_name: meetmate_mailhog
     restart: unless-stopped
     ports:
-      - "127.0.0.1:1025:1025"   # SMTP port (backend kirim email ke sini)
-      - "127.0.0.1:8025:8025"   # Web UI (buka di browser buat lihat email)
+      - "1025:1025" # SMTP port (backend kirim email ke sini)
+      - "8025:8025" # Web UI (buka di browser buat lihat email)
 
   adminer:
     image: adminer

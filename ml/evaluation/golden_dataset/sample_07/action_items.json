@@ -1,0 +1,12 @@
+[
+  {
+    "task": "kirim revisi spreadsheet anggaran ke Pak Wahyu dan Bram",
+    "assignee_name": "Ibu Citra",
+    "due_date_text": "sore ini"
+  },
+  {
+    "task": "sepakati finalisasi anggaran via email",
+    "assignee_name": null,
+    "due_date_text": "sebelum akhir minggu"
+  }
+]

@@ -1,0 +1,7 @@
+Budi: Selamat pagi semuanya. Terima kasih telah hadir dalam rapat evaluasi kinerja bulan ini. Langsung saja kita mulai. Sari, bisakah kamu melaporkan kondisi keuangan kita bulan ini?
+Sari: Selamat pagi, Pak Budi. Jadi, bulan ini pemasukan kita naik sekitar 12% dibandingkan bulan lalu. Namun ada beberapa pengeluaran operasional yang melebihi anggaran, terutama di bagian logistik.
+Reza: Betul, Pak. Itu karena ada kenaikan harga bahan bakar yang cukup signifikan minggu lalu. Kami sudah mencari alternatif vendor untuk menekan biaya tersebut.
+Budi: Baik, tolong buat laporan tertulis soal vendor alternatif itu ya, Reza. Sari, untuk bulan depan mohon anggaran logistik diberi buffer tambahan 10% sebagai antisipasi.
+Sari: Siap, Pak. Akan saya revisi anggarannya sebelum akhir minggu ini.
+Reza: Saya juga akan kirimkan daftar vendor baru paling lambat Kamis, Pak.
+Budi: Bagus. Kalau begitu rapat hari ini kita tutup. Terima kasih atas laporannya. Sampai jumpa di rapat berikutnya.
