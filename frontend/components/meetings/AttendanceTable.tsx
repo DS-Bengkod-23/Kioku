@@ -99,12 +99,6 @@ export default function AttendanceTable({ participants, onMarkAttendance }: Atte
           );
         })}
       </div>
-
-      {onMarkAttendance && (
-        <p className="text-[10px] text-slate-500 text-center">
-          ✓ = Tandai Hadir &nbsp;·&nbsp; ✗ = Tandai Tidak Hadir
-        </p>
-      )}
     </div>
   );
 }
