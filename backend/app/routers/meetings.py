@@ -69,9 +69,10 @@ def get_meeting(
     detail = MeetingDetail.model_validate(meeting)
     if meeting.organizer_id != current_user.id:
         # checkin_token adalah magic link milik masing-masing peserta — jangan
-        # bocor ke peserta lain, hanya organizer yang boleh melihatnya.
-        for participant in detail.participants:
-            participant.checkin_token = None
+        # bocor ke peserta lain, hanya organizer dan peserta itu sendiri yang boleh melihatnya.
+        for participant, participant_detail in zip(meeting.participants, detail.participants):
+            if participant.user_id != current_user.id:
+                participant_detail.checkin_token = None
     return detail
 
 @router.patch("/{meeting_id}", response_model=MeetingDetail)

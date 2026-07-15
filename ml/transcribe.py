@@ -2,6 +2,7 @@ import os
 import re
 import time
 import soundfile as sf
+from openai import OpenAI
 from google import genai
 from google.genai import types
 try:
@@ -37,14 +38,64 @@ def _split_sentences(text: str) -> list[str]:
     return [s.strip() for s in sentences if s.strip()]
 
 
-def transcribe(audio_path: str) -> TranscriptResult:
-    if not os.path.exists(audio_path):
-        raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path}")
+def _transcribe_openai(audio_path: str) -> TranscriptResult:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY tidak ditemukan di environment")
 
-    supported = (".mp3", ".mp4", ".wav", ".m4a", ".flac", ".ogg", ".webm")
-    if not audio_path.lower().endswith(supported):
-        raise ValueError(f"Format file tidak didukung: {audio_path}")
+    model_name = os.getenv("OPENAI_TRANSCRIBE_MODEL", "whisper-1")
 
+    try:
+        ext = os.path.splitext(audio_path)[1].lower()
+        mime_type = _AUDIO_MIME_TYPES.get(ext, "audio/mpeg")
+
+        # whisper-1 menolak file berekstensi .mp4 walau 'mp4' ada di daftar format
+        # yang didukung (bug/quirk dari OpenAI) — .m4a adalah kontainer yang sama
+        # persis (MPEG-4 audio-only), jadi aman di-relabel biar diterima.
+        send_ext = ".m4a" if ext == ".mp4" else ext
+
+        client = OpenAI(api_key=api_key)
+        with open(audio_path, "rb") as f:
+            file_bytes = f.read()
+
+        response = client.audio.transcriptions.create(
+            model=model_name,
+            file=(f"audio{send_ext}", file_bytes, mime_type),
+            response_format="verbose_json",
+            language="id",
+        )
+    except Exception as e:
+        raise RuntimeError(f"OpenAI Whisper gagal: {e}") from e
+
+    raw_segments = getattr(response, "segments", None) or []
+    segments = [
+        TranscriptSegment(
+            speaker="SPEAKER_00",
+            start=round(seg.start, 2),
+            end=round(seg.end, 2),
+            text=seg.text.strip(),
+        )
+        for seg in raw_segments
+    ]
+
+    duration = getattr(response, "duration", None) or 0.0
+
+    if not segments:
+        segments = [TranscriptSegment(
+            speaker="SPEAKER_00",
+            start=0.0,
+            end=duration,
+            text=response.text.strip(),
+        )]
+
+    return TranscriptResult(
+        segments=segments,
+        language=getattr(response, "language", None) or "id",
+        duration=duration,
+    )
+
+
+def _transcribe_gemini(audio_path: str) -> TranscriptResult:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY tidak ditemukan di environment")
@@ -114,3 +165,16 @@ def transcribe(audio_path: str) -> TranscriptResult:
         language="id",
         duration=duration,
     )
+
+def transcribe(audio_path: str) -> TranscriptResult:
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path}")
+
+    supported = (".mp3", ".mp4", ".wav", ".m4a", ".flac", ".ogg", ".webm")
+    if not audio_path.lower().endswith(supported):
+        raise ValueError(f"Format file tidak didukung: {audio_path}")
+
+    provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    if provider == "gemini":
+        return _transcribe_gemini(audio_path)
+    return _transcribe_openai(audio_path)

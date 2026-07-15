@@ -230,7 +230,7 @@ def generate_notulen_pdf(
     pdf.ln(4)
 
     # 1 PESERTA
-    _section_heading(pdf, "1  PESERTA")
+    _section_heading(pdf, "1.  PESERTA")
 
     peserta_widths = [10, 42, 33, 27, 23, 25, 20]
     peserta_aligns = ["C", "L", "L", "L", "L", "L", "C"]
@@ -261,7 +261,7 @@ def generate_notulen_pdf(
     pdf.ln(6)
 
     # 2 LOKASI PERTEMUAN
-    _section_heading(pdf, "2  LOKASI PERTEMUAN")
+    _section_heading(pdf, "2.  LOKASI PERTEMUAN")
     _field(pdf, "Gedung", meeting.location_building or "-")
     _field(pdf, "Ruang", meeting.location_room or "-")
     _field(pdf, "Instansi", settings.ORG_NAME)
@@ -270,7 +270,7 @@ def generate_notulen_pdf(
 
     # 3 MULAI PERTEMUAN
     start_time = _fmt_time_wib(meeting.scheduled_at)
-    _section_heading(pdf, "3  MULAI PERTEMUAN")
+    _section_heading(pdf, "3.  MULAI PERTEMUAN")
     _field(pdf, "Rencana Awal", start_time)
     _field(pdf, "Aktual Pertemuan", start_time)
     _field(pdf, "Notulen", organizer_name)
@@ -278,7 +278,7 @@ def generate_notulen_pdf(
 
     # 4 AGENDA PERTEMUAN (data sama seperti "topik yang dibahas")
     topics = summary.topics or []
-    _section_heading(pdf, "4  AGENDA PERTEMUAN")
+    _section_heading(pdf, "4.  AGENDA PERTEMUAN")
     pdf.set_font("DejaVuSans", "", 10)
     if topics:
         for t in topics:
@@ -292,13 +292,13 @@ def generate_notulen_pdf(
     # 5 SELESAI PERTEMUAN
     end_dt = meeting.scheduled_at + timedelta(minutes=meeting.duration_minutes)
     end_time = _fmt_time_wib(end_dt)
-    _section_heading(pdf, "5  SELESAI PERTEMUAN")
+    _section_heading(pdf, "5.  SELESAI PERTEMUAN")
     _field(pdf, "Rencana Selesai", end_time)
     _field(pdf, "Aktual Selesai", end_time)
     pdf.ln(4)
 
     # 6 RENCANA AKSI PASCA PERTEMUAN (data sama seperti "action items")
-    _section_heading(pdf, "6  RENCANA AKSI PASCA PERTEMUAN")
+    _section_heading(pdf, "6.  RENCANA AKSI PASCA PERTEMUAN")
 
     aksi_widths = [10, 82, 50, 40]
     aksi_aligns = ["C", "L", "L", "L"]
@@ -334,7 +334,7 @@ def generate_notulen_pdf(
 
     # 7 KEPUTUSAN PERTEMUAN (data sama seperti "keputusan")
     decisions = summary.decisions or []
-    _section_heading(pdf, "7  KEPUTUSAN PERTEMUAN")
+    _section_heading(pdf, "7.  KEPUTUSAN PERTEMUAN")
     pdf.set_font("DejaVuSans", "", 10)
     if decisions:
         for idx, d in enumerate(decisions, start=1):
@@ -346,7 +346,7 @@ def generate_notulen_pdf(
     pdf.ln(4)
 
     # 8 PERTEMUAN BERIKUTNYA (belum ada datanya di sistem, statis dulu)
-    _section_heading(pdf, "8  PERTEMUAN BERIKUTNYA")
+    _section_heading(pdf, "8.  PERTEMUAN BERIKUTNYA")
     _field(pdf, "Lokasi", "-")
     _field(pdf, "Tanggal", "-")
     _field(pdf, "Waktu", "-")
