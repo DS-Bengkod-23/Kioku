@@ -1,13 +1,18 @@
 import os
 import json
 from pathlib import Path
-from openai import OpenAI
+from openai import OpenAI, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError
 from google import genai
 from google.genai import types as genai_types
+from google.genai import errors as genai_errors
 try:
     from .schemas import SummaryResult, ActionItem
 except ImportError:
     from schemas import SummaryResult, ActionItem
+try:
+    from .errors import PermanentMLError
+except ImportError:
+    from errors import PermanentMLError
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -31,6 +36,8 @@ def _complete_openai(prompt: str) -> str:
             response_format={"type": "json_object"},
         )
         return response.choices[0].message.content.strip()
+    except (BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError) as e:
+        raise PermanentMLError(f"OpenAI tidak bisa diakses (permanen): {e}") from e
     except Exception as e:
         raise RuntimeError(f"OpenAI tidak bisa diakses: {e}") from e
 
@@ -50,6 +57,8 @@ def _complete_gemini(prompt: str) -> str:
             config=genai_types.GenerateContentConfig(response_mime_type="application/json"),
         )
         return response.text.strip()
+    except genai_errors.ClientError as e:
+        raise PermanentMLError(f"Gemini tidak bisa diakses (permanen): {e}") from e
     except Exception as e:
         raise RuntimeError(f"Gemini tidak bisa diakses: {e}") from e
 

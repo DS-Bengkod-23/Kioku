@@ -59,7 +59,7 @@ def send_invitation_email(
     try:
         msg = MIMEMultipart("mixed")
         msg["Subject"] = f"Undangan Rapat: {meeting_title}"
-        msg["From"] = settings.SMTP_USER or "noreply@meetmate.local"
+        msg["From"] = settings.SMTP_USER or "noreply@kioku.local"
         msg["To"] = recipient_email
 
         msg.attach(MIMEText(body_html, "html"))
@@ -111,7 +111,7 @@ def send_notulen_email(
     try:
         msg = MIMEMultipart("mixed")
         msg["Subject"] = f"Notulen Rapat: {meeting_title}"
-        msg["From"] = settings.SMTP_USER or "noreply@meetmate.local"
+        msg["From"] = settings.SMTP_USER or "noreply@kioku.local"
         msg["To"] = recipient_email
 
         msg.attach(MIMEText(body_html, "html"))

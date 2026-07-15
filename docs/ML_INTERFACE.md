@@ -159,7 +159,7 @@ def extract_summary(transcript_text: str) -> SummaryResult:
         SummaryResult dengan tldr, decisions, topics
 
     Raises:
-        RuntimeError: jika Ollama tidak bisa diakses
+        RuntimeError: jika API provider (OpenAI/Gemini) tidak bisa diakses
         ValueError: jika output LLM tidak valid JSON
     """
 ```
@@ -206,7 +206,7 @@ def extract_action_items(
         list ActionItem. Bisa kosong jika tidak ada action item ditemukan.
 
     Raises:
-        RuntimeError: jika Ollama tidak bisa diakses
+        RuntimeError: jika API provider (OpenAI/Gemini) tidak bisa diakses
         ValueError: jika output LLM tidak valid JSON
     """
 ```
@@ -289,6 +289,6 @@ from ml.transcribe import transcribe
 
 1. Output wajib pakai Pydantic schema yang sudah didefinisikan di atas. Jangan return dict biasa.
 2. Setiap fungsi wajib raise exception yang spesifik (bukan silent fail) supaya Backend bisa handle error dengan benar.
-3. Ollama harus jalan di `localhost:11434` sebelum Worker dijalankan.
+3. `OPENAI_API_KEY` (atau `GEMINI_API_KEY` kalau `LLM_PROVIDER=gemini`) dan `HF_TOKEN` harus terisi di `.env` sebelum Worker dijalankan — transcribe/extract lewat API cloud, diarize butuh HF_TOKEN untuk download model pyannote.
 4. Untuk development awal, boleh hardcode `audio_path` di notebook. Tapi function signature harus sudah sesuai dokumen ini sebelum Backend mulai integrasi.
 5. Kalau ada perubahan schema atau function signature, diskusi dulu dengan Audi sebelum diubah.

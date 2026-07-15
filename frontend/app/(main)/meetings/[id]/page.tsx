@@ -89,8 +89,8 @@ export default function MeetingDetailPage() {
       setRecordingFileName(file.name);
       setPollingEnabled(true);
       toast.success("Rekaman berhasil diupload, AI sedang memproses...");
-    } catch {
-      toast.error("Upload gagal. Coba lagi.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Upload gagal. Coba lagi."));
     }
   };
 

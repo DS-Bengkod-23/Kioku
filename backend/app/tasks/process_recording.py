@@ -39,8 +39,14 @@ def _set_step(db, recording: Recording, step: str, status_after: ProcessingStatu
     db.commit()
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, max_retries=3, retry_backoff=60, retry_backoff_max=600)
 def process_recording_task(self, recording_id: str, meeting_id: str):
+    # ml.* di-import lazy (bukan level-modul) karena module ini juga di-import oleh
+    # backend-api (lewat upload_recording()'s `.delay()` call), dan container
+    # backend-api tidak punya folder ml/ di image-nya (beda build context dari
+    # celery-worker) — import level-modul di sini akan meledakkan endpoint upload.
+    from ml.errors import PermanentMLError  # noqa: PLC0415
+
     db = SessionLocal()
     tmp_path = None
 
@@ -54,7 +60,6 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
 
         # Propagate pydantic settings → os.environ so ML modules can use os.getenv()
         os.environ.setdefault("HF_TOKEN", settings.HF_TOKEN)
-        os.environ.setdefault("WHISPER_MODEL", settings.WHISPER_MODEL)
         os.environ.setdefault("LLM_PROVIDER", settings.LLM_PROVIDER)
         os.environ.setdefault("GEMINI_API_KEY", settings.GEMINI_API_KEY)
         os.environ.setdefault("GEMINI_MODEL", settings.GEMINI_MODEL)
@@ -230,6 +235,8 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
                 _mark_failed(db, rec, str(exc))
         except Exception:
             pass
+        if isinstance(exc, PermanentMLError):
+            raise MLPipelineError(str(exc)) from exc
         raise self.retry(exc=exc)
     finally:
         db.close()

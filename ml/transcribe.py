@@ -2,13 +2,18 @@ import os
 import re
 import time
 import soundfile as sf
-from openai import OpenAI
+from openai import OpenAI, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError
 from google import genai
 from google.genai import types
+from google.genai import errors as genai_errors
 try:
     from .schemas import TranscriptResult, TranscriptSegment
 except ImportError:
     from schemas import TranscriptResult, TranscriptSegment
+try:
+    from .errors import PermanentMLError
+except ImportError:
+    from errors import PermanentMLError
 
 
 # Ekstensi diaudio ini semua audio-only, tapi mimetypes stdlib nebak .mp4 sebagai
@@ -64,6 +69,8 @@ def _transcribe_openai(audio_path: str) -> TranscriptResult:
             response_format="verbose_json",
             language="id",
         )
+    except (BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError) as e:
+        raise PermanentMLError(f"OpenAI Whisper gagal (permanen): {e}") from e
     except Exception as e:
         raise RuntimeError(f"OpenAI Whisper gagal: {e}") from e
 
@@ -136,6 +143,8 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
         )
         full_text = response.text.strip()
 
+    except genai_errors.ClientError as e:
+        raise PermanentMLError(f"Gemini STT gagal (permanen): {e}") from e
     except Exception as e:
         raise RuntimeError(f"Gemini STT gagal: {e}") from e
 

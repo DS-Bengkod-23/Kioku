@@ -41,7 +41,7 @@ export default function UploadZone({ onUpload }: UploadZoneProps) {
       >
         <UploadCloud size={24} className="mx-auto text-slate-500 mb-2 group-hover:text-indigo-600 transition-colors" />
         <p className="text-[11px] text-slate-700 font-medium">Klik atau drag &amp; drop rekaman</p>
-        <p className="text-[10px] text-slate-500 mt-1">MP3, MP4, WAV, M4A · Maks. 200MB</p>
+        <p className="text-[10px] text-slate-500 mt-1">MP3, MP4, WAV, M4A · Maks. 200MB (25MB jika provider OpenAI)</p>
       </div>
     </>
   );

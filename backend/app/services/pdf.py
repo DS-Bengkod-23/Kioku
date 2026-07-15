@@ -222,7 +222,7 @@ def generate_notulen_pdf(
     # ── CONTENT PAGES ─────────────────────────────────────────────────────────
     pdf.add_page()
 
-    # RINGKASAN (fitur MeetMate, di luar format resmi kampus, ditaruh sebelum struktur bernomor)
+    # RINGKASAN (fitur Kioku, di luar format resmi kampus, ditaruh sebelum struktur bernomor)
     _section_heading(pdf, "RINGKASAN")
     pdf.set_font("DejaVuSans", "", 10)
     pdf.set_x(pdf.l_margin + _BODY_INDENT)
