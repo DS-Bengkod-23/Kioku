@@ -94,10 +94,10 @@ RUN pip install --no-cache-dir -r ml_requirements.txt --extra-index-url https://
 ### `ml/extract.py`
 **Sebelum:** hardcode pakai OpenAI API saja.
 
-**Sesudah:** ditambahkan **Hybrid LLM** — bisa switch antara OpenAI dan Ollama via environment variable `LLM_PROVIDER` di `.env`:
+**Sesudah:** ditambahkan switch multi-provider via environment variable `LLM_PROVIDER` di `.env`. (Catatan: sempat direncanakan pakai Ollama lokal di iterasi awal, tapi rencana itu diganti Gemini sebagai provider kedua — `LLM_PROVIDER=ollama` **tidak didukung** oleh kode saat ini.)
 ```env
 LLM_PROVIDER=openai   # pakai OpenAI API (default)
-LLM_PROVIDER=ollama   # pakai Ollama lokal (butuh GPU)
+LLM_PROVIDER=gemini   # pakai Gemini API
 ```
 
 ---
@@ -122,7 +122,9 @@ headers: { "Content-Type": undefined }
 
 ## Catatan Menjalankan Lokal (Tanpa Docker)
 
-Untuk development tanpa Docker, semua service tetap bisa jalan manual. Yang wajib tetap pakai Docker hanya infrastruktur (postgres, redis, minio, mailhog):
+> **Update:** panduan ini sudah digantikan oleh bagian [Mode Development (Hot-Reload)](../README.md#mode-development-hot-reload) di README utama. Celery Worker sekarang **wajib** tetap di Docker (`make infra`), bukan dijalankan lokal seperti contoh di bawah — menghindari masalah kompatibilitas DLL ML (pyannote/torch) di Windows. Bagian ini dibiarkan sebagai catatan historis, bukan instruksi yang berlaku lagi.
+
+Untuk development tanpa Docker sama sekali (historis, sudah tidak disarankan), semua service tetap bisa jalan manual. Yang wajib tetap pakai Docker hanya infrastruktur (postgres, redis, minio, mailhog):
 
 ```bash
 # Infra saja
@@ -131,8 +133,8 @@ docker compose up -d postgres redis minio mailhog
 # Backend (terminal terpisah, env meetmate)
 cd backend && uvicorn app.main:app --reload --port 8000
 
-# Celery Worker (terminal terpisah, env meetmate, dari root project)
-set PYTHONPATH=e:\Folder audi\MeetMate\Aplikasi\backend;e:\Folder audi\MeetMate\Aplikasi
+# Celery Worker (terminal terpisah, env meetmate, dari root project — ganti path di bawah sesuai lokasi clone kamu)
+set PYTHONPATH=<path-ke-repo>\backend;<path-ke-repo>
 celery -A app.worker worker --loglevel=info
 
 # Frontend (terminal terpisah)

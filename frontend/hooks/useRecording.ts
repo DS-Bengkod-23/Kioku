@@ -1,21 +1,46 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { uploadRecording, getRecordingStatus, deleteRecording } from "@/lib/api";
 
 const DONE_STATUSES = ["completed", "failed"];
+// Batas atas polling: kalau setelah durasi ini status belum juga completed/failed
+// (worker crash, task hilang, dll), berhenti polling. Tanpa ini, kalau backend tidak
+// pernah lagi meng-update status, UI polling tiap 3 detik selamanya tanpa ada sinyal
+// ke user bahwa sesuatu janggal.
+const MAX_POLLING_MS = 60 * 60 * 1000; // 1 jam
 
 export function useRecordingStatus(meetingId: string, enabled = false) {
-  return useQuery({
+  const pollStartRef = useRef<number | null>(null);
+  if (enabled) {
+    if (pollStartRef.current === null) pollStartRef.current = Date.now();
+  } else {
+    pollStartRef.current = null;
+  }
+
+  const query = useQuery({
     queryKey: ["recording-status", meetingId],
     queryFn: () => getRecordingStatus(meetingId),
     enabled: enabled && !!meetingId,
-    // Poll setiap 3 detik, berhenti otomatis jika sudah selesai atau gagal
-    refetchInterval: (query) => {
-      const status = query.state.data?.processing_status;
+    // Poll setiap 3 detik, berhenti otomatis jika sudah selesai, gagal, atau sudah
+    // melewati MAX_POLLING_MS tanpa kunjung selesai.
+    refetchInterval: (q) => {
+      const status = q.state.data?.processing_status;
       if (status && DONE_STATUSES.includes(status)) return false;
+      if (pollStartRef.current && Date.now() - pollStartRef.current > MAX_POLLING_MS) {
+        return false;
+      }
       return 3000;
     },
   });
+
+  const status = query.data?.processing_status;
+  const isStalled =
+    enabled &&
+    !!pollStartRef.current &&
+    Date.now() - pollStartRef.current > MAX_POLLING_MS &&
+    !(status && DONE_STATUSES.includes(status));
+
+  return { ...query, isStalled };
 }
 
 export function useUploadRecording(meetingId: string) {

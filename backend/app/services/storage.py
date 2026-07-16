@@ -1,7 +1,10 @@
+import logging
 import uuid
 import boto3
 from botocore.exceptions import ClientError
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_minio_client():
@@ -44,4 +47,7 @@ def delete_file(file_url: str):
     try:
         client.delete_object(Bucket=settings.MINIO_BUCKET, Key=file_url)
     except ClientError:
-        pass
+        # Best-effort by design (dipanggil dari path yang sudah commit ke DB),
+        # tapi kegagalan tetap harus kelihatan di log — kalau tidak, objek yatim
+        # di storage menumpuk tanpa sinyal operasional sama sekali.
+        logger.warning("Gagal menghapus objek storage %s", file_url, exc_info=True)

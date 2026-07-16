@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Filter, Plus, ChevronDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, readUserProfile } from "@/lib/utils";
 import MeetingCard from "@/components/meetings/MeetingCard";
 import DatePicker from "@/components/notulen/DatePicker";
 import {
@@ -64,7 +64,7 @@ export default function MeetingsDashboard() {
 
   // Ambil nama dari localStorage untuk sapaan
   useEffect(() => {
-    const profile = JSON.parse(localStorage.getItem("user_profile") || "{}");
+    const profile = readUserProfile();
     if (profile.name) setUserName(profile.name.split(" ")[0]);
   }, []);
 

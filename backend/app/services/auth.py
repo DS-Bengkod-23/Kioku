@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -41,7 +42,10 @@ def get_current_user(
         user_id: str | None = payload.get("sub")
         if user_id is None:
             raise credentials_exc
-    except JWTError:
+        # sub yang bukan UUID valid akan bikin query di bawah lempar DataError
+        # Postgres (500), bukan 401 — validasi dulu di sini.
+        uuid.UUID(user_id)
+    except (JWTError, ValueError):
         raise credentials_exc
 
     user = db.query(User).filter(User.id == user_id).first()

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MeetMate is a fully self-hosted, offline-first meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. No data leaves the machine; all ML runs locally.
+Kioku is a self-hosted meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. Infrastructure (DB, storage, email) is self-hosted, and speaker diarization always runs locally via pyannote.audio — but transcription and summarization go through a cloud LLM API (OpenAI by default, Gemini optional; see "ML Pipeline Setup" below), so audio and transcript text are **not** kept fully on-machine.
 
 **Team:** Audi (Backend), Helena (Frontend), Azmi (ML)
 

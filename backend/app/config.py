@@ -55,9 +55,6 @@ class Settings(BaseSettings):
     # Hugging Face
     HF_TOKEN: str = ""
 
-    # Whisper
-    WHISPER_MODEL: str = "large-v3"
-
     # File upload
     MAX_UPLOAD_SIZE_MB: int = 200
     MAX_AUDIO_DURATION_HOURS: int = 2
@@ -80,6 +77,10 @@ class Settings(BaseSettings):
     @property
     def allowed_audio_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.ALLOWED_AUDIO_FORMATS.split(",")]
+
+    @property
+    def max_audio_duration_seconds(self) -> float:
+        return self.MAX_AUDIO_DURATION_HOURS * 3600
 
 
 settings = Settings()

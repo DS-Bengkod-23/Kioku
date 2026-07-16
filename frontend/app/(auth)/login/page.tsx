@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Sparkles, ShieldCheck } from "lucide-react";
@@ -15,6 +15,13 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFlying, setIsFlying] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timeoutIds.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,10 +47,16 @@ export default function LoginPage() {
       window.dispatchEvent(new Event("profileUpdate"));
 
       toast.success("Login berhasil! Menyiapkan dashboard Anda...");
-      setTimeout(() => {
+      // ID timeout disimpan & dibersihkan saat unmount — tanpa ini, kalau user
+      // pindah halaman (mis. klik "Daftar akun gratis") di antara submit dan
+      // animasi selesai, router.replace tetap tereksekusi dan menyeret user
+      // balik ke /meetings di tengah-tengah halaman lain.
+      const t1 = setTimeout(() => {
         setIsFlying(true);
-        setTimeout(() => router.replace("/meetings"), 1000);
+        const t2 = setTimeout(() => router.replace("/meetings"), 1000);
+        timeoutIds.current.push(t2);
       }, 600);
+      timeoutIds.current.push(t1);
     } catch (err: any) {
       setFormError(extractApiError(err, "Email atau password salah."));
       setIsLoading(false);

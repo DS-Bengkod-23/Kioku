@@ -1,5 +1,5 @@
 """
-Evaluasi kualitas pipeline ML MeetMate.
+Evaluasi kualitas pipeline ML Kioku.
 Metrics: WER (Word Error Rate) + Action Item F1.
 """
 

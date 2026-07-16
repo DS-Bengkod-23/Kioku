@@ -8,6 +8,27 @@ try:
     from .schemas import TranscriptResult, TranscriptSegment
 except ImportError:
     from schemas import TranscriptResult, TranscriptSegment
+try:
+    from .errors import PermanentMLError
+except ImportError:
+    from errors import PermanentMLError
+
+_pipeline = None
+
+
+def _get_pipeline() -> Pipeline:
+    # Pipeline.from_pretrained() memuat beberapa sub-model — mahal untuk dijalankan
+    # ulang di tiap panggilan diarize(), dan berisiko OOM kalau worker Celery
+    # concurrency > 1 (beberapa copy model resident bersamaan). Cache sekali per
+    # proses worker (aman untuk prefork: tiap child dapat cache-nya sendiri
+    # setelah panggilan pertamanya).
+    global _pipeline
+    if _pipeline is None:
+        _pipeline = Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-3.1",
+            token=os.getenv("HF_TOKEN"),
+        )
+    return _pipeline
 
 
 def _load_audio(audio_path: str):
@@ -37,15 +58,13 @@ def _load_audio(audio_path: str):
 
 
 def diarize(audio_path: str) -> list[TranscriptSegment]:
+    # PermanentMLError (bukan FileNotFoundError polos) supaya Celery task tidak
+    # buang 3x retry untuk error yang pasti gagal identik lagi.
     if not os.path.exists(audio_path):
-        raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path}")
+        raise PermanentMLError(f"File audio tidak ditemukan: {audio_path}")
 
-    hf_token = os.getenv("HF_TOKEN")
     try:
-        pipeline = Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-3.1",
-            token=hf_token,
-        )
+        pipeline = _get_pipeline()
         waveform, sample_rate = _load_audio(audio_path)
         result = pipeline({"waveform": waveform, "sample_rate": sample_rate})
     except Exception as e:
@@ -66,10 +85,18 @@ def merge_transcript_diarization(
     for segment in transcript.segments:
         mid = (segment.start + segment.end) / 2
         matched = "SPEAKER_00"
-        for turn in diarization:
-            if turn.start <= mid <= turn.end:
-                matched = turn.speaker
-                break
+        if diarization:
+            inside = [turn for turn in diarization if turn.start <= mid <= turn.end]
+            if inside:
+                matched = inside[0].speaker
+            else:
+                # mid jatuh di jeda antar-turn (boundary Whisper vs pyannote jarang
+                # persis sama) — pakai speaker dari turn terdekat, bukan hardcode
+                # SPEAKER_00 yang mem-bias semua jeda ke speaker pertama.
+                matched = min(
+                    diarization,
+                    key=lambda turn: min(abs(mid - turn.start), abs(mid - turn.end)),
+                ).speaker
         segment.speaker = matched
 
     return transcript
