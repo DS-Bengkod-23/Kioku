@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import List, Optional, Any
 from datetime import datetime
 from uuid import UUID
@@ -15,7 +15,7 @@ class MeetingCreate(BaseModel):
     description: Optional[str] = None
     agenda_text: Optional[str] = None
     participant_emails: List[str]
-    duration_minutes: int = 60
+    duration_minutes: int = Field(60, ge=1, description="Durasi rapat dalam menit, minimal 1")
 
 
 class MeetingUpdate(BaseModel):
@@ -27,7 +27,7 @@ class MeetingUpdate(BaseModel):
     location_city: Optional[str] = None
     description: Optional[str] = None
     agenda_text: Optional[str] = None
-    duration_minutes: Optional[int] = None
+    duration_minutes: Optional[int] = Field(None, ge=1, description="Durasi rapat dalam menit, minimal 1")
     participant_emails: Optional[List[str]] = None
 
 

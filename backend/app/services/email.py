@@ -81,7 +81,8 @@ def send_invitation_email(
         status=status,
     )
     db.add(log)
-    db.commit()
+    # Sengaja tidak commit di sini — lihat catatan di create_invitations().
+    # Caller (create_meeting/update_meeting) yang commit di akhir transaksinya.
 
 
 def send_notulen_email(
@@ -135,4 +136,5 @@ def send_notulen_email(
         status=status,
     )
     db.add(log)
-    db.commit()
+    # Sengaja tidak commit di sini — caller (process_recording_task) commit setelah
+    # semua peserta selesai dikirimi, sekaligus dengan attendance_locked/status.

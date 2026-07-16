@@ -38,6 +38,7 @@ export function useCreateActionItem(meetingId: string) {
       createActionItem(meetingId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
+      queryClient.invalidateQueries({ queryKey: ["action-items"] });
     },
   });
 }

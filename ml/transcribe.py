@@ -1,5 +1,7 @@
+import logging
 import os
 import re
+import subprocess
 import time
 import soundfile as sf
 from openai import OpenAI, BadRequestError, AuthenticationError, PermissionDeniedError, NotFoundError
@@ -14,6 +16,13 @@ try:
     from .errors import PermanentMLError
 except ImportError:
     from errors import PermanentMLError
+
+logger = logging.getLogger(__name__)
+
+# Timeout HTTP untuk panggilan OpenAI/Gemini — tanpa ini, koneksi yang hang
+# (bukan error, cuma diam) bisa memblokir worker Celery tanpa batas waktu.
+# Lebih longgar dari extract.py karena request di sini membawa file audio.
+_LLM_TIMEOUT_SECONDS = 300
 
 
 # Ekstensi diaudio ini semua audio-only, tapi mimetypes stdlib nebak .mp4 sebagai
@@ -35,6 +44,25 @@ def _get_duration(audio_path: str) -> float:
         with sf.SoundFile(audio_path) as f:
             return len(f) / f.samplerate
     except Exception:
+        pass
+
+    # soundfile/libsndfile umumnya tidak bisa decode mp3/mp4/m4a langsung — justru
+    # format utama yang didukung aplikasi ini — jadi fallback ke ffprobe dulu
+    # sebelum menyerah. Tanpa ini, duration diam-diam jadi 0.0 dan mencemari
+    # timestamp segmen sintetis di jalur Gemini (semua kalimat dapat 0.5s rata).
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", audio_path],
+            check=True, capture_output=True, text=True,
+        )
+        return float(result.stdout.strip())
+    except Exception:
+        logger.warning(
+            "Gagal membaca durasi audio %s (soundfile & ffprobe gagal) — "
+            "timestamp segmen akan fallback ke 0.5 detik/kalimat.",
+            audio_path, exc_info=True,
+        )
         return 0.0
 
 
@@ -59,7 +87,7 @@ def _transcribe_openai(audio_path: str) -> TranscriptResult:
         # persis (MPEG-4 audio-only), jadi aman di-relabel biar diterima.
         send_ext = ".m4a" if ext == ".mp4" else ext
 
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=_LLM_TIMEOUT_SECONDS)
         with open(audio_path, "rb") as f:
             file_bytes = f.read()
 
@@ -108,12 +136,16 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
         raise RuntimeError("GEMINI_API_KEY tidak ditemukan di environment")
 
     model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    client = genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=_LLM_TIMEOUT_SECONDS * 1000),
+    )
+    audio_file = None
 
     try:
         ext = os.path.splitext(audio_path)[1].lower()
         mime_type = _AUDIO_MIME_TYPES.get(ext, "audio/mpeg")
 
-        client = genai.Client(api_key=api_key)
         audio_file = client.files.upload(
             file=audio_path,
             config=types.UploadFileConfig(mimeType=mime_type),
@@ -141,12 +173,37 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
             model=model_name,
             contents=[audio_file, prompt],
         )
-        full_text = response.text.strip()
+        full_text = response.text
+        if not full_text:
+            # response.text bisa None walau HTTP 200 — misal kena safety filter
+            # atau candidate berhenti tanpa menghasilkan teks (finish_reason != STOP).
+            if not response.candidates:
+                block_reason = getattr(response.prompt_feedback, "block_reason", None)
+                raise PermanentMLError(f"Gemini tidak mengembalikan hasil (prompt diblokir: {block_reason})")
+            candidate = response.candidates[0]
+            raise PermanentMLError(
+                f"Gemini tidak mengembalikan teks transkrip "
+                f"(finish_reason={candidate.finish_reason}, finish_message={candidate.finish_message})"
+            )
+        full_text = full_text.strip()
 
     except genai_errors.ClientError as e:
         raise PermanentMLError(f"Gemini STT gagal (permanen): {e}") from e
+    except PermanentMLError:
+        raise
     except Exception as e:
         raise RuntimeError(f"Gemini STT gagal: {e}") from e
+    finally:
+        # File API Gemini bukan storage permanen (default TTL 48 jam) — hapus
+        # segera setelah dipakai daripada membiarkan menumpuk sampai expire sendiri.
+        if audio_file is not None:
+            try:
+                client.files.delete(name=audio_file.name)
+            except Exception:
+                logger.warning(
+                    "Gagal menghapus file Gemini %s setelah transcribe",
+                    getattr(audio_file, "name", "?"), exc_info=True,
+                )
 
     duration = _get_duration(audio_path)
     sentences = _split_sentences(full_text)
@@ -176,12 +233,14 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
     )
 
 def transcribe(audio_path: str) -> TranscriptResult:
+    # PermanentMLError (bukan FileNotFoundError/ValueError polos) supaya Celery task
+    # tidak buang 3x retry (~puluhan menit) untuk error yang pasti gagal identik lagi.
     if not os.path.exists(audio_path):
-        raise FileNotFoundError(f"File audio tidak ditemukan: {audio_path}")
+        raise PermanentMLError(f"File audio tidak ditemukan: {audio_path}")
 
     supported = (".mp3", ".mp4", ".wav", ".m4a", ".flac", ".ogg", ".webm")
     if not audio_path.lower().endswith(supported):
-        raise ValueError(f"Format file tidak didukung: {audio_path}")
+        raise PermanentMLError(f"Format file tidak didukung: {audio_path}")
 
     provider = os.getenv("LLM_PROVIDER", "openai").lower()
     if provider == "gemini":

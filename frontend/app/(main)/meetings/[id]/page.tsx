@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { cn, isDateOverdue, daysUntil, extractApiError } from "@/lib/utils";
+import { cn, isDateOverdue, daysUntil, extractApiError, readUserProfile } from "@/lib/utils";
 import type { ActionItemDTO, ParticipantResponse, TranscriptSegment } from "@/types";
 import {
   AlertDialog,
@@ -47,7 +47,7 @@ export default function MeetingDetailPage() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: meeting, isLoading, isError } = useMeeting(id);
-  const { data: recordingStatus } = useRecordingStatus(id, pollingEnabled);
+  const { data: recordingStatus, isStalled: isRecordingStalled } = useRecordingStatus(id, pollingEnabled);
   const { mutateAsync: uploadRecording, isPending: isUploading, progress: uploadProgress } = useUploadRecording(id);
   const { mutateAsync: deleteRecording, isPending: isDeletingRec } = useDeleteRecording(id);
 
@@ -74,9 +74,7 @@ export default function MeetingDetailPage() {
 
   // Deteksi apakah user adalah organizer
   // localStorage hanya tersedia di browser (bukan saat SSR)
-  const currentUserEmail = typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("user_profile") || "{}").email
-    : null;
+  const currentUserEmail = readUserProfile().email ?? null;
   const isOrganizer = meeting?.organizer?.email === currentUserEmail;
   const myParticipant = meeting?.participants?.find((p: ParticipantResponse) => p.email === currentUserEmail);
 
@@ -101,8 +99,8 @@ export default function MeetingDetailPage() {
       setRecordingFileName(null);
       setPollingEnabled(false);
       toast.success("Rekaman berhasil dihapus.");
-    } catch {
-      toast.error("Gagal menghapus rekaman.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menghapus rekaman."));
     }
   };
 
@@ -111,8 +109,8 @@ export default function MeetingDetailPage() {
       await deleteMeeting(id);
       toast.success("Rapat berhasil dihapus.");
       router.push("/meetings");
-    } catch {
-      toast.error("Gagal menghapus rapat.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menghapus rapat."));
     }
   };
 
@@ -120,8 +118,8 @@ export default function MeetingDetailPage() {
     try {
       await completeMeeting();
       toast.success("Rapat ditandai selesai. Presensi dikunci.");
-    } catch {
-      toast.error("Gagal menyelesaikan rapat.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menyelesaikan rapat."));
     }
   };
 
@@ -139,7 +137,11 @@ export default function MeetingDetailPage() {
       toast.success("Presensi berhasil dicatat!");
     } catch (err: any) {
       toast.error(extractApiError(err, "Gagal melakukan presensi. Coba lagi."));
-      setSelfCheckInBlocked(true);
+      // Hanya kunci UI check-in kalau backend memang bilang presensi ditutup (403).
+      // Error lain (network, 500, dll) harus tetap bisa dicoba lagi.
+      if (err?.response?.status === 403) {
+        setSelfCheckInBlocked(true);
+      }
     }
   };
 
@@ -147,8 +149,8 @@ export default function MeetingDetailPage() {
     try {
       await lockAttendance();
       toast.success("Presensi berhasil dikunci.");
-    } catch {
-      toast.error("Gagal mengunci presensi.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal mengunci presensi."));
     }
   };
 
@@ -162,16 +164,16 @@ export default function MeetingDetailPage() {
   const handleAssignTask = async (taskId: string | number, assigneeId: string) => {
     try {
       await updateActionItemAsync({ id: String(taskId), assigneeId: assigneeId || null });
-    } catch {
-      toast.error("Gagal assign action item. Pastikan kamu adalah organizer.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal assign action item. Pastikan kamu adalah organizer."));
     }
   };
 
   const handleSetDueDate = async (taskId: string | number, dueDate: string | null) => {
     try {
       await updateActionItemAsync({ id: String(taskId), dueDate });
-    } catch {
-      toast.error("Gagal ubah deadline. Pastikan kamu adalah organizer.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal ubah deadline. Pastikan kamu adalah organizer."));
     }
   };
 
@@ -179,8 +181,8 @@ export default function MeetingDetailPage() {
     setIsDownloadingPdf(true);
     try {
       await downloadNotulenPdf(id, meeting?.title ?? id);
-    } catch {
-      toast.error("Gagal mengunduh notulen PDF.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal mengunduh notulen PDF."));
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -190,8 +192,8 @@ export default function MeetingDetailPage() {
     try {
       await createActionItem({ task: data.task, assignee_participant_id: data.assigneeParticipantId, due_date: data.dueDate });
       toast.success("Action item berhasil ditambahkan.");
-    } catch {
-      toast.error("Gagal menambahkan action item.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menambahkan action item."));
     }
   };
 
@@ -427,6 +429,12 @@ export default function MeetingDetailPage() {
                     progress={isUploading ? uploadProgress : 100}
                     fileName={recordingFileName}
                   />
+                )}
+                {!isFailed && isRecordingStalled && (
+                  <p className="mt-2 text-[11px] text-amber-600">
+                    Pemrosesan berjalan lebih lama dari biasanya. Coba muat ulang halaman,
+                    atau hubungi admin kalau status tidak berubah.
+                  </p>
                 )}
                 {!isFailed && steps && (
                   <div className="mt-3 space-y-1">

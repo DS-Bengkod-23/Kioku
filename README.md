@@ -194,6 +194,7 @@ cd frontend
 npm install
 npm run dev
 ```
+> Opsional: buat `frontend/.env.local` isi `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1` kalau backend-api tidak jalan di `localhost:8000` (detail di [frontend/README.md](frontend/README.md)). Kalau tidak dibuat, frontend otomatis fallback ke URL yang sama.
 
 **4. Buka** http://localhost:3000
 

@@ -74,7 +74,11 @@ Dipakai bareng oleh `transcribe.py`, `extract_summary()`, dan `extract_action_it
 
 **3. Pyannote setup**
 
-pyannote butuh Hugging Face token untuk download model pertama kali. Buat akun di https://huggingface.co, accept terms model `pyannote/speaker-diarization-3.1`, lalu set di `.env`:
+pyannote butuh Hugging Face token untuk download model pertama kali. Buat akun di https://huggingface.co, lalu accept license untuk **kedua** model ini (pipeline `speaker-diarization-3.1` memanggil `segmentation-3.0` secara internal — tanpa accept keduanya bakal muncul error 403 gated repo):
+- `pyannote/speaker-diarization-3.1`
+- `pyannote/segmentation-3.0`
+
+Set token-nya di `.env`:
 ```env
 HF_TOKEN=hf_...
 ```
