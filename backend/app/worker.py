@@ -5,5 +5,5 @@ celery_app = Celery(
     "kioku",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tasks.process_recording"],
+    include=["app.tasks.process_recording", "app.tasks.calendar_sync"],
 )

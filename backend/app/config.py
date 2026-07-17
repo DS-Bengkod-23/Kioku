@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_SSO_ENABLED: bool = True
 
+    # Google Calendar sync
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_CALENDAR_REDIRECT_URI: str = ""
+    GOOGLE_TOKEN_ENCRYPTION_KEY: str = ""
+    GOOGLE_CALENDAR_SYNC_ENABLED: bool = True
+
     # Provider LLM aktif untuk transcribe + summary/action item extraction.
     # Pilihan: 'openai' atau 'gemini'. Ganti nilai ini di .env lalu rebuild+restart
     # celery-worker untuk pindah provider tanpa ubah kode.
