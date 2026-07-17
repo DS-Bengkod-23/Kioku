@@ -99,9 +99,9 @@ GEMINI_MODEL=gemini-3.1-flash-lite
 1. Organizer uploads audio → `POST /meetings/:id/recording`
 2. Backend saves file to MinIO, enqueues Celery task
 3. Celery worker calls ML pipeline in sequence:
-   - `transcribe(audio_path)` → Gemini API (audio upload + transcription)
-   - `diarize(audio_path)` → pyannote.audio
-   - `merge_transcript_diarization(transcript, diarization)`
+   - `transcribe(audio_path)` → Gemini API (audio upload + transcription with per-segment speaker labels)
+   - `diarize(audio_path)` → no-op (speaker labeling now happens inside `transcribe`); kept only so the pipeline shape below doesn't need to change
+   - `merge_transcript_diarization(transcript, diarization)` → no-op passthrough when diarization is empty
    - `extract_summary(transcript_text)` → Gemini API
    - `extract_action_items(transcript_text, participant_names)` → Gemini API
 4. Results saved to DB (Transcript, Summary, ActionItem tables)

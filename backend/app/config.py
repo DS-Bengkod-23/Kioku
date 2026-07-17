@@ -38,12 +38,9 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
-    # Gemini (dipakai untuk transkripsi, summary, dan action item extraction)
+    # Gemini (dipakai untuk transkripsi, diarization, summary, dan action item extraction)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
-
-    # Hugging Face
-    HF_TOKEN: str = ""
 
     # Whisper
     WHISPER_MODEL: str = "large-v3"

@@ -2,11 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies including those needed for ML like ffmpeg
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
-    ffmpeg \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,7 +15,7 @@ COPY ml/requirements.txt ml_requirements.txt
 
 # Install dependencies
 RUN pip install --no-cache-dir -r backend_requirements.txt
-RUN pip install --no-cache-dir -r ml_requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir -r ml_requirements.txt
 
 # Copy both source directories
 COPY backend/ backend/

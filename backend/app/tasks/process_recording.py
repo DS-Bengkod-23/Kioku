@@ -53,7 +53,6 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             return
 
         # Propagate pydantic settings → os.environ so ML modules can use os.getenv()
-        os.environ.setdefault("HF_TOKEN", settings.HF_TOKEN)
         os.environ.setdefault("WHISPER_MODEL", settings.WHISPER_MODEL)
         os.environ.setdefault("GEMINI_API_KEY", settings.GEMINI_API_KEY)
         os.environ.setdefault("GEMINI_MODEL", settings.GEMINI_MODEL)
