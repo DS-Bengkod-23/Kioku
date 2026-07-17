@@ -1,6 +1,6 @@
+import json
 import logging
 import os
-import re
 import subprocess
 import time
 import soundfile as sf
@@ -64,11 +64,6 @@ def _get_duration(audio_path: str) -> float:
             audio_path, exc_info=True,
         )
         return 0.0
-
-
-def _split_sentences(text: str) -> list[str]:
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    return [s.strip() for s in sentences if s.strip()]
 
 
 def _transcribe_openai(audio_path: str) -> TranscriptResult:
@@ -163,18 +158,27 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
             detail = getattr(audio_file, "error", None)
             raise RuntimeError(f"Gemini gagal memproses file audio yang diupload: {detail}")
 
+        # Diarization (label speaker per segmen) diminta langsung ke Gemini lewat
+        # prompt ini — tidak lewat pyannote sama sekali kalau LLM_PROVIDER=gemini
+        # (lihat diarize(), yang jadi no-op untuk provider ini).
         prompt = (
-            "Transcribe this audio recording accurately and completely. "
-            "Return ONLY the transcribed text, nothing else. "
-            "No timestamps, no speaker labels, no explanation."
+            "Transcribe this meeting recording accurately and completely, in the language spoken. "
+            "Identify each distinct speaker by their voice and label them consistently as "
+            "SPEAKER_00, SPEAKER_01, SPEAKER_02, etc. — the same person must keep the same label "
+            "everywhere they speak in the recording. "
+            "Split the transcript into segments, one segment per continuous utterance by a single speaker, "
+            "in chronological order. "
+            "Return ONLY a JSON array with this exact shape, nothing else:\n"
+            '[{"speaker": "SPEAKER_00", "text": "..."}, {"speaker": "SPEAKER_01", "text": "..."}]'
         )
 
         response = client.models.generate_content(
             model=model_name,
             contents=[audio_file, prompt],
+            config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
-        full_text = response.text
-        if not full_text:
+        raw_text = response.text
+        if not raw_text:
             # response.text bisa None walau HTTP 200 — misal kena safety filter
             # atau candidate berhenti tanpa menghasilkan teks (finish_reason != STOP).
             if not response.candidates:
@@ -185,12 +189,14 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
                 f"Gemini tidak mengembalikan teks transkrip "
                 f"(finish_reason={candidate.finish_reason}, finish_message={candidate.finish_message})"
             )
-        full_text = full_text.strip()
+        raw_segments = json.loads(raw_text.strip())
 
     except genai_errors.ClientError as e:
         raise PermanentMLError(f"Gemini STT gagal (permanen): {e}") from e
     except PermanentMLError:
         raise
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Output Gemini bukan JSON valid: {e}") from e
     except Exception as e:
         raise RuntimeError(f"Gemini STT gagal: {e}") from e
     finally:
@@ -206,23 +212,24 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
                 )
 
     duration = _get_duration(audio_path)
-    sentences = _split_sentences(full_text)
 
-    if not sentences:
-        sentences = [full_text]
+    texts = [(seg.get("speaker") or "SPEAKER_00", seg.get("text", "").strip()) for seg in raw_segments]
+    texts = [(speaker, text) for speaker, text in texts if text]
+    if not texts:
+        raise ValueError("Gemini tidak mengembalikan segmen transkrip")
 
-    total_chars = sum(len(s) for s in sentences)
+    total_chars = sum(len(text) for _, text in texts)
     segments = []
     current_time = 0.0
 
-    for sentence in sentences:
-        ratio = len(sentence) / total_chars if total_chars > 0 else 1 / len(sentences)
+    for speaker, text in texts:
+        ratio = len(text) / total_chars if total_chars > 0 else 1 / len(texts)
         seg_duration = max(duration * ratio, 0.5)
         segments.append(TranscriptSegment(
-            speaker="SPEAKER_00",
+            speaker=speaker,
             start=round(current_time, 2),
             end=round(current_time + seg_duration, 2),
-            text=sentence,
+            text=text,
         ))
         current_time += seg_duration
 
