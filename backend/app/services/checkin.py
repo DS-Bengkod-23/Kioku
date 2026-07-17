@@ -95,6 +95,17 @@ def confirm_checkin(db: Session, token: str) -> CheckinConfirmResponse:
 
     name = participant.user.name if participant.user else participant.email.split('@')[0]
 
+    # Cek idempoten DULU sebelum lock/window: peserta yang sudah berhasil check-in
+    # sebelumnya harus tetap dapat respons sukses walau meeting sudah terkunci
+    # setelahnya (mis. organizer upload recording) — retry/double-klik pada request
+    # yang sebenarnya sudah sukses tidak boleh berujung 403 "sudah ditutup".
+    if invitation.used_at is not None:
+        return CheckinConfirmResponse(
+            message="Kehadiran berhasil dikonfirmasi",
+            participant_name=name,
+            meeting_title=meeting.title,
+        )
+
     if meeting.attendance_locked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -106,13 +117,6 @@ def confirm_checkin(db: Session, token: str) -> CheckinConfirmResponse:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Waktu absensi sudah berakhir",
-        )
-
-    if invitation.used_at is not None:
-        return CheckinConfirmResponse(
-            message="Kehadiran berhasil dikonfirmasi",
-            participant_name=name,
-            meeting_title=meeting.title,
         )
 
     invitation.used_at = datetime.now(timezone.utc)
@@ -232,8 +236,10 @@ def update_attendance_manual(
     if attendance:
         attendance.status = status_value
         attendance.method = AttendanceMethod.manual
-        if checked_in_at:
-            attendance.checked_in_at = checked_in_at
+        # checked_in_at ikut di-set (ke waktu sekarang untuk "hadir", None untuk
+        # status lain) supaya tidak menyisakan timestamp lama saat organizer
+        # membatalkan/mengoreksi status kehadiran seseorang.
+        attendance.checked_in_at = checked_in_at
     else:
         attendance = Attendance(
             participant_id=participant.id,

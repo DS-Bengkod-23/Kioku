@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { CheckCircle2, Square, Users, Clock, Plus, X } from "lucide-react";
+import { CheckCircle2, Square, Users, Clock, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DatePicker, { formatShortDate } from "./DatePicker";
 
 interface ActionItem {
   id: string | number;
@@ -34,13 +35,6 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
   const [newTask, setNewTask] = useState("");
   const [newAssignee, setNewAssignee] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
-  const [editingDueDateId, setEditingDueDateId] = useState<string | number | null>(null);
-  const [dueDateDraft, setDueDateDraft] = useState("");
-
-  const formatShortDate = (dateStr?: string) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,30 +55,42 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
       {items.map((item) => (
         <div
           key={item.id}
-          onClick={() => onToggle(item.id)}
           className={cn(
-            "flex items-start gap-3.5 p-4 border border-slate-200 rounded-xl cursor-pointer transition bg-white",
-            item.status === "Selesai" ? "bg-slate-50 opacity-50" : "hover:bg-slate-50 hover:border-slate-300"
+            "flex items-start gap-3.5 p-4 border border-slate-200 rounded-xl transition bg-white",
+            item.status === "Selesai" ? "bg-slate-50 opacity-50" : "hover:border-slate-300"
           )}
         >
-          {item.status === "Selesai" ? (
-            <CheckCircle2 className="text-emerald-400 mt-0.5 shrink-0" size={18} />
-          ) : (
-            <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-indigo-600/40")} size={18} />
-          )}
+          <button
+            type="button"
+            onClick={() => onToggle(item.id)}
+            className="shrink-0 mt-0.5 cursor-pointer"
+            title={item.status === "Selesai" ? "Tandai belum selesai" : "Tandai selesai"}
+          >
+            {item.status === "Selesai" ? (
+              <CheckCircle2 className="text-emerald-400" size={18} />
+            ) : (
+              <Square
+                className={cn(
+                  "transition",
+                  item.status === "Terlambat" ? "text-rose-400/40 hover:text-rose-500" : "text-indigo-600/40 hover:text-indigo-600"
+                )}
+                size={18}
+              />
+            )}
+          </button>
 
           <div className="flex-1 min-w-0">
             <p className={cn("text-xs font-semibold text-slate-900 truncate", item.status === "Selesai" && "line-through text-slate-500")}>
               {item.task}
             </p>
-            <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
+            <div className="flex items-center gap-3.5 mt-2 text-sm text-slate-500">
               {onAssign ? (
-                <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <Users size={11} />
+                <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <Users size={15} />
                   <select
                     value={item.assigneeId ?? ""}
                     onChange={(e) => onAssign(item.id, e.target.value)}
-                    className="bg-transparent text-[10px] text-slate-500 border-none focus:outline-none cursor-pointer"
+                    className="bg-transparent text-sm text-slate-500 border-none focus:outline-none cursor-pointer"
                   >
                     <option value="">Belum di-assign</option>
                     {participants?.map((p) => (
@@ -93,52 +99,18 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
                   </select>
                 </span>
               ) : (
-                <span className="flex items-center gap-1"><Users size={11} /> {item.assignee}</span>
+                <span className="flex items-center gap-1.5"><Users size={15} /> {item.assignee}</span>
               )}
-              {editingDueDateId === item.id ? (
-                <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="date"
-                    value={dueDateDraft}
-                    onChange={(e) => setDueDateDraft(e.target.value)}
-                    autoFocus
-                    className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => { onSetDueDate?.(item.id, dueDateDraft || null); setEditingDueDateId(null); }}
-                    className="text-emerald-600 hover:text-emerald-700"
-                    title="Simpan"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingDueDateId(null)}
-                    className="text-slate-400 hover:text-slate-600"
-                    title="Batal"
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
+              {onSetDueDate ? (
+                <DatePicker
+                  value={item.dueDate ?? null}
+                  onChange={(date) => onSetDueDate(item.id, date)}
+                  variant="badge"
+                />
               ) : item.dueDate ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditingDueDateId(item.id); setDueDateDraft(item.dueDate ?? ""); }}
-                  className="flex items-center gap-1 text-slate-500 hover:text-indigo-600 transition"
-                  title="Ubah deadline"
-                >
-                  <Clock size={11} /> {formatShortDate(item.dueDate)}
-                </button>
-              ) : onSetDueDate ? (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setEditingDueDateId(item.id); setDueDateDraft(""); }}
-                  className="flex items-center gap-1 text-slate-400 hover:text-indigo-600 transition"
-                  title="Tambah deadline"
-                >
-                  <Clock size={11} /> + Deadline
-                </button>
+                <span className="flex items-center gap-1.5 text-slate-500">
+                  <Clock size={15} /> {formatShortDate(item.dueDate)}
+                </span>
               ) : null}
             </div>
           </div>
@@ -186,12 +158,7 @@ export default function ActionItemList({ items, onToggle, participants, onAssign
                   ))}
                 </select>
               )}
-              <input
-                type="date"
-                value={newDueDate}
-                onChange={(e) => setNewDueDate(e.target.value)}
-                className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400 text-slate-600"
-              />
+              <DatePicker value={newDueDate || null} onChange={(date) => setNewDueDate(date ?? "")} variant="field" />
             </div>
             <div className="flex gap-2 justify-end">
               <button

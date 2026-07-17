@@ -2,7 +2,7 @@ import uuid
 import logging
 from datetime import date, timedelta
 from typing import Optional
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from fastapi import HTTPException
 from sqlalchemy import or_
 from app.config import settings
@@ -47,7 +47,7 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
     )
     db.add(org_participant)
 
-    for email in data.participant_emails:
+    for email in dict.fromkeys(data.participant_emails):  # dedupe, pertahankan urutan
         if email == organizer_user.email:
             continue
         existing_user = db.query(User).filter(User.email == email).first()
@@ -87,6 +87,11 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
             except Exception:
                 logger.exception("Failed to send invitation email to %s", p.email)
 
+        # create_invitations()/send_invitation_email() tidak lagi commit sendiri
+        # (lihat catatan di invitation.py) — commit di sini supaya invitation &
+        # email log yang baru dibuat benar-benar persist.
+        db.commit()
+
     return meeting
 
 
@@ -99,8 +104,13 @@ def get_meetings(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
 ) -> MeetingListResponse:
+    # selectinload (bukan joinedload) untuk Meeting.participants: joinedload pada
+    # relasi collection yang digabung dengan LIMIT/OFFSET/count() menyebabkan fan-out
+    # baris SQL per participant, sehingga total jadi salah hitung dan participants
+    # bisa terpotong di batas halaman. selectinload mengambil koleksi lewat query
+    # terpisah setelah paginasi, jadi aman dipakai bersama LIMIT/OFFSET.
     query = db.query(Meeting).join(MeetingParticipant, Meeting.id == MeetingParticipant.meeting_id).options(
-        joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
+        selectinload(Meeting.participants).joinedload(MeetingParticipant.attendance),
         joinedload(Meeting.recording),
     ).filter(
         MeetingParticipant.user_id == user_id
@@ -285,7 +295,7 @@ def search_meetings(
     ).outerjoin(
         ActionItem, Meeting.id == ActionItem.meeting_id
     ).options(
-        joinedload(Meeting.participants).joinedload(MeetingParticipant.attendance),
+        selectinload(Meeting.participants).joinedload(MeetingParticipant.attendance),
         joinedload(Meeting.recording),
     ).filter(
         MeetingParticipant.user_id == user_id

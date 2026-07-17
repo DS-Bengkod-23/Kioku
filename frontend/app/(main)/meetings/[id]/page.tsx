@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { cn, isDateOverdue, daysUntil } from "@/lib/utils";
+import { cn, isDateOverdue, daysUntil, extractApiError, readUserProfile } from "@/lib/utils";
 import type { ActionItemDTO, ParticipantResponse, TranscriptSegment } from "@/types";
 import {
   AlertDialog,
@@ -27,7 +27,7 @@ import TranscriptView from "@/components/notulen/TranscriptView";
 import AttendanceTable from "@/components/meetings/AttendanceTable";
 
 
-import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting, useLockAttendance } from "@/hooks/useMeeting";
+import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting, useLockAttendance, useSelfCheckIn } from "@/hooks/useMeeting";
 import { useUploadRecording, useRecordingStatus, useDeleteRecording } from "@/hooks/useRecording";
 import { useUpdateActionItem, useCreateActionItem } from "@/hooks/useActionItems";
 import { downloadNotulenPdf } from "@/lib/api";
@@ -47,7 +47,7 @@ export default function MeetingDetailPage() {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: meeting, isLoading, isError } = useMeeting(id);
-  const { data: recordingStatus } = useRecordingStatus(id, pollingEnabled);
+  const { data: recordingStatus, isStalled: isRecordingStalled } = useRecordingStatus(id, pollingEnabled);
   const { mutateAsync: uploadRecording, isPending: isUploading, progress: uploadProgress } = useUploadRecording(id);
   const { mutateAsync: deleteRecording, isPending: isDeletingRec } = useDeleteRecording(id);
 
@@ -64,6 +64,8 @@ export default function MeetingDetailPage() {
     }
   }, [meeting?.processing_status]);
   const { mutate: updateAttendance } = useUpdateAttendance(id);
+  const { mutateAsync: selfCheckIn, isPending: isSelfCheckingIn } = useSelfCheckIn(id);
+  const [selfCheckInBlocked, setSelfCheckInBlocked] = useState(false);
   const { mutate: updateActionItem, mutateAsync: updateActionItemAsync } = useUpdateActionItem(id);
   const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
@@ -72,10 +74,9 @@ export default function MeetingDetailPage() {
 
   // Deteksi apakah user adalah organizer
   // localStorage hanya tersedia di browser (bukan saat SSR)
-  const currentUserEmail = typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("user_profile") || "{}").email
-    : null;
+  const currentUserEmail = readUserProfile().email ?? null;
   const isOrganizer = meeting?.organizer?.email === currentUserEmail;
+  const myParticipant = meeting?.participants?.find((p: ParticipantResponse) => p.email === currentUserEmail);
 
   const handleUpload = async (file: File) => {
     const form = new FormData();
@@ -86,8 +87,8 @@ export default function MeetingDetailPage() {
       setRecordingFileName(file.name);
       setPollingEnabled(true);
       toast.success("Rekaman berhasil diupload, AI sedang memproses...");
-    } catch {
-      toast.error("Upload gagal. Coba lagi.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Upload gagal. Coba lagi."));
     }
   };
 
@@ -98,8 +99,8 @@ export default function MeetingDetailPage() {
       setRecordingFileName(null);
       setPollingEnabled(false);
       toast.success("Rekaman berhasil dihapus.");
-    } catch {
-      toast.error("Gagal menghapus rekaman.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menghapus rekaman."));
     }
   };
 
@@ -108,8 +109,8 @@ export default function MeetingDetailPage() {
       await deleteMeeting(id);
       toast.success("Rapat berhasil dihapus.");
       router.push("/meetings");
-    } catch {
-      toast.error("Gagal menghapus rapat.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menghapus rapat."));
     }
   };
 
@@ -117,8 +118,8 @@ export default function MeetingDetailPage() {
     try {
       await completeMeeting();
       toast.success("Rapat ditandai selesai. Presensi dikunci.");
-    } catch {
-      toast.error("Gagal menyelesaikan rapat.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menyelesaikan rapat."));
     }
   };
 
@@ -126,12 +127,30 @@ export default function MeetingDetailPage() {
     updateAttendance({ participantId, status: newStatus });
   };
 
+  const handleSelfCheckIn = async () => {
+    if (!myParticipant?.checkin_token) {
+      toast.error("Presensi mandiri belum tersedia untuk akunmu. Gunakan link undangan dari email, atau hubungi organizer.");
+      return;
+    }
+    try {
+      await selfCheckIn(myParticipant.checkin_token);
+      toast.success("Presensi berhasil dicatat!");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal melakukan presensi. Coba lagi."));
+      // Hanya kunci UI check-in kalau backend memang bilang presensi ditutup (403).
+      // Error lain (network, 500, dll) harus tetap bisa dicoba lagi.
+      if (err?.response?.status === 403) {
+        setSelfCheckInBlocked(true);
+      }
+    }
+  };
+
   const handleLockAttendance = async () => {
     try {
       await lockAttendance();
       toast.success("Presensi berhasil dikunci.");
-    } catch {
-      toast.error("Gagal mengunci presensi.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal mengunci presensi."));
     }
   };
 
@@ -145,16 +164,16 @@ export default function MeetingDetailPage() {
   const handleAssignTask = async (taskId: string | number, assigneeId: string) => {
     try {
       await updateActionItemAsync({ id: String(taskId), assigneeId: assigneeId || null });
-    } catch {
-      toast.error("Gagal assign action item. Pastikan kamu adalah organizer.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal assign action item. Pastikan kamu adalah organizer."));
     }
   };
 
   const handleSetDueDate = async (taskId: string | number, dueDate: string | null) => {
     try {
       await updateActionItemAsync({ id: String(taskId), dueDate });
-    } catch {
-      toast.error("Gagal ubah deadline. Pastikan kamu adalah organizer.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal ubah deadline. Pastikan kamu adalah organizer."));
     }
   };
 
@@ -162,8 +181,8 @@ export default function MeetingDetailPage() {
     setIsDownloadingPdf(true);
     try {
       await downloadNotulenPdf(id, meeting?.title ?? id);
-    } catch {
-      toast.error("Gagal mengunduh notulen PDF.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal mengunduh notulen PDF."));
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -173,8 +192,8 @@ export default function MeetingDetailPage() {
     try {
       await createActionItem({ task: data.task, assignee_participant_id: data.assigneeParticipantId, due_date: data.dueDate });
       toast.success("Action item berhasil ditambahkan.");
-    } catch {
-      toast.error("Gagal menambahkan action item.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menambahkan action item."));
     }
   };
 
@@ -411,6 +430,12 @@ export default function MeetingDetailPage() {
                     fileName={recordingFileName}
                   />
                 )}
+                {!isFailed && isRecordingStalled && (
+                  <p className="mt-2 text-[11px] text-amber-600">
+                    Pemrosesan berjalan lebih lama dari biasanya. Coba muat ulang halaman,
+                    atau hubungi admin kalau status tidak berubah.
+                  </p>
+                )}
                 {!isFailed && steps && (
                   <div className="mt-3 space-y-1">
                     {Object.entries(steps).map(([step, val]) => (
@@ -448,6 +473,47 @@ export default function MeetingDetailPage() {
                 </div>
               )}
             </section>
+
+            {/* Presensi Saya (khusus peserta yang login lewat akun sendiri) */}
+            {!isOrganizer && myParticipant && (
+              <section className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <div className="px-6 py-3.5 border-b border-slate-200 flex items-center gap-2">
+                  <CheckCircle size={14} className="text-indigo-500" />
+                  <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Presensi Saya</h2>
+                </div>
+                <div className="p-6">
+                  {myParticipant.attendance_status === "hadir" ? (
+                    <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                      <div className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                        <CheckCircle size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-emerald-700">Kehadiran Tercatat</p>
+                        <p className="text-xs text-emerald-600 mt-0.5">Terima kasih sudah hadir di rapat ini.</p>
+                      </div>
+                    </div>
+                  ) : meeting.attendance_locked || selfCheckInBlocked ? (
+                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                        <Lock size={18} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-600">Presensi Ditutup</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Waktu check-in sudah berakhir.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleSelfCheckIn}
+                      disabled={isSelfCheckingIn}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle size={15} /> {isSelfCheckingIn ? "Memproses..." : "Check In Sekarang"}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Kehadiran */}
             <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">

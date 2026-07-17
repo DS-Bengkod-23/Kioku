@@ -4,6 +4,8 @@ import logging
 import tempfile
 from datetime import date
 
+from sqlalchemy.orm import joinedload
+
 from app.worker import celery_app
 from app.database import SessionLocal
 from app.config import settings
@@ -12,6 +14,7 @@ from app.models.transcript import Transcript
 from app.models.summary import Summary
 from app.models.action_item import ActionItem, ActionItemSource
 from app.models.meeting import Meeting, MeetingStatus
+from app.models.participant import MeetingParticipant
 from app.services.storage import get_minio_client
 from app.services.email import send_notulen_email
 from app.services.pdf import generate_notulen_pdf
@@ -39,8 +42,25 @@ def _set_step(db, recording: Recording, step: str, status_after: ProcessingStatu
     db.commit()
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    retry_backoff=60,
+    retry_backoff_max=600,
+    # Tanpa batas ini, koneksi yang hang (network stall ke OpenAI/Gemini/HF, bukan
+    # error — cuma diam) bisa memblokir worker tanpa batas waktu. Batasnya longgar
+    # (bukan ketat) supaya tidak membunuh audio 2 jam yang memang sah masih diproses:
+    # soft (SoftTimeLimitExceeded, bisa ditangkap untuk cleanup) di 3 jam, hard di 3.5 jam.
+    soft_time_limit=10800,
+    time_limit=12600,
+)
 def process_recording_task(self, recording_id: str, meeting_id: str):
+    # ml.* di-import lazy (bukan level-modul) karena module ini juga di-import oleh
+    # backend-api (lewat upload_recording()'s `.delay()` call), dan container
+    # backend-api tidak punya folder ml/ di image-nya (beda build context dari
+    # celery-worker) — import level-modul di sini akan meledakkan endpoint upload.
+    from ml.errors import PermanentMLError  # noqa: PLC0415
+
     db = SessionLocal()
     tmp_path = None
 
@@ -53,9 +73,13 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             return
 
         # Propagate pydantic settings → os.environ so ML modules can use os.getenv()
-        os.environ.setdefault("WHISPER_MODEL", settings.WHISPER_MODEL)
+        os.environ.setdefault("HF_TOKEN", settings.HF_TOKEN)
+        os.environ.setdefault("LLM_PROVIDER", settings.LLM_PROVIDER)
         os.environ.setdefault("GEMINI_API_KEY", settings.GEMINI_API_KEY)
         os.environ.setdefault("GEMINI_MODEL", settings.GEMINI_MODEL)
+        os.environ.setdefault("OPENAI_API_KEY", settings.OPENAI_API_KEY)
+        os.environ.setdefault("OPENAI_TRANSCRIBE_MODEL", settings.OPENAI_TRANSCRIBE_MODEL)
+        os.environ.setdefault("OPENAI_MODEL", settings.OPENAI_MODEL)
 
         # Step 1: mark upload done, start transcribing
         _set_step(db, recording, "upload", ProcessingStatus.transcribing)
@@ -94,15 +118,29 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         _set_step(db, recording, "diarize", ProcessingStatus.extracting)
 
         # Step 7: extract summary and action items (PLACEHOLDER)
-        meeting = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+        # Eager-load participants.user & .invitation sekaligus — dipakai lagi nanti
+        # di step 10 (distribusi email notulen), tanpa ini tiap p.invitation di loop
+        # itu jadi lazy-load terpisah (N+1 query per peserta).
+        meeting = (
+            db.query(Meeting)
+            .options(
+                joinedload(Meeting.participants).joinedload(MeetingParticipant.user),
+                joinedload(Meeting.participants).joinedload(MeetingParticipant.invitation),
+            )
+            .filter(Meeting.id == uuid.UUID(meeting_id))
+            .first()
+        )
         participants = list(meeting.participants)
         participant_names = [
             p.user.name if p.user else p.email for p in participants
         ]
 
         segments = getattr(merged, "segments", [])
-        transcript_text = " ".join(
-            seg.get("text", "") if isinstance(seg, dict) else getattr(seg, "text", "")
+        # Sertakan label speaker (bukan hanya .text) supaya LLM bisa mengaitkan
+        # keputusan/tugas ke pembicara yang tepat saat extract_summary/extract_action_items.
+        transcript_text = "\n".join(
+            f"{seg.get('speaker', '') if isinstance(seg, dict) else getattr(seg, 'speaker', '')}: "
+            f"{seg.get('text', '') if isinstance(seg, dict) else getattr(seg, 'text', '')}"
             for seg in segments
         )
 
@@ -219,12 +257,36 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
 
     except Exception as exc:
         logger.exception("process_recording_task failed for recording %s", recording_id)
-        try:
-            rec = db.query(Recording).filter(Recording.id == uuid.UUID(recording_id)).first()
-            if rec:
-                _mark_failed(db, rec, str(exc))
-        except Exception:
-            pass
+
+        # MLPipelineError sendiri sudah permanen (di-raise dari branch NotImplementedError/
+        # ImportError di atas) — jangan cocokkan cuma isinstance(exc, PermanentMLError),
+        # karena MLPipelineError bukan subclass-nya dan dulu malah lolos ke retry di bawah.
+        is_permanent = isinstance(exc, (PermanentMLError, MLPipelineError))
+        # Error transient (network/rate-limit/dll) jangan langsung ditandai failed —
+        # itu bikin status sempat "failed" di polling frontend padahal retry berikutnya
+        # akan sukses. Hanya tandai failed kalau ini memang permanen atau retry sudah habis.
+        is_final_attempt = is_permanent or self.request.retries >= self.max_retries
+
+        if is_final_attempt:
+            try:
+                # exc bisa saja berasal dari db.commit() yang gagal (mis. IntegrityError
+                # di step 8) — session harus di-rollback dulu sebelum dipakai lagi, kalau
+                # tidak, query di bawah ini ikut gagal dan recording tidak pernah ditandai
+                # failed (stuck diam-diam di status sebelumnya selamanya).
+                db.rollback()
+                rec = db.query(Recording).filter(Recording.id == uuid.UUID(recording_id)).first()
+                if rec:
+                    _mark_failed(db, rec, str(exc))
+            except Exception:
+                logger.exception(
+                    "Gagal mencatat status failed untuk recording %s setelah error asli di atas",
+                    recording_id,
+                )
+
+        if isinstance(exc, MLPipelineError):
+            raise
+        if isinstance(exc, PermanentMLError):
+            raise MLPipelineError(str(exc)) from exc
         raise self.retry(exc=exc)
     finally:
         db.close()

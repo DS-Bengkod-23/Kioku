@@ -159,17 +159,29 @@ export default function ActionItemsPage() {
               filteredTasks.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => handleToggleComplete(item.id)}
                   className={cn(
-                    "border border-slate-200 p-4 rounded-xl flex items-start gap-4 cursor-pointer transition",
-                    item.status === "Selesai" ? "bg-slate-50 opacity-50" : "hover:bg-slate-50 hover:border-slate-300"
+                    "border border-slate-200 p-4 rounded-xl flex items-start gap-4 transition",
+                    item.status === "Selesai" ? "bg-slate-50 opacity-50" : "hover:border-slate-300"
                   )}
                 >
-                  {item.status === "Selesai" ? (
-                    <CheckCircle2 className="text-emerald-400 mt-0.5 shrink-0" size={20} />
-                  ) : (
-                    <Square className={cn("mt-0.5 shrink-0", item.status === "Terlambat" ? "text-rose-400/40" : "text-indigo-600/40")} size={20} />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleComplete(item.id)}
+                    className="shrink-0 mt-0.5 cursor-pointer"
+                    title={item.status === "Selesai" ? "Tandai belum selesai" : "Tandai selesai"}
+                  >
+                    {item.status === "Selesai" ? (
+                      <CheckCircle2 className="text-emerald-400" size={20} />
+                    ) : (
+                      <Square
+                        className={cn(
+                          "transition",
+                          item.status === "Terlambat" ? "text-rose-400/40 hover:text-rose-500" : "text-indigo-600/40 hover:text-indigo-600"
+                        )}
+                        size={20}
+                      />
+                    )}
+                  </button>
                   <div className="flex-1 min-w-0">
                     <p className={cn("text-sm font-semibold text-slate-900 truncate", item.status === "Selesai" && "line-through text-slate-500")}>
                       {item.task}

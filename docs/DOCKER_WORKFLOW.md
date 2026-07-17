@@ -1,4 +1,4 @@
-# Panduan Docker dan Software Engineering Workflow MeetMate
+# Panduan Docker dan Software Engineering Workflow Kioku
 
 Dokumen ini menjelaskan struktur infrastruktur yang baru saja diperbarui menggunakan Docker dan best-practices software engineering. Tujuannya adalah untuk memudahkan kolaborasi antar developer (Frontend, Backend, dan ML) tanpa perlu memikirkan bentrok versi *dependencies*.
 
@@ -17,7 +17,7 @@ Dokumen ini menjelaskan struktur infrastruktur yang baru saja diperbarui menggun
 ### Persiapan (Prerequisites)
 Pastikan hal ini **sudah jalan di host machine** (laptop/PC) Anda:
 1. Docker & Docker Compose
-2. [Ollama](https://ollama.com/) — (harus tetap di-run di host machine, bukan Docker, agar Ollama bisa mendapat akses langsung ke GPU untuk model `qwen2.5:7b`).
+2. API Key salah satu LLM provider (OpenAI atau Gemini — lihat [Konfigurasi LLM](#konfigurasi-llm-openai-vs-gemini)) dan `HF_TOKEN` HuggingFace untuk model diarization pyannote.
 
 ### Langkah-Langkah Menjalankan
 Cukup buka terminal di root folder (Aplikasi), lalu jalankan perintah berikut menggunakan Make:
@@ -26,9 +26,14 @@ Cukup buka terminal di root folder (Aplikasi), lalu jalankan perintah berikut me
 # 1. Menjalankan semuanya di background (build otomatis jika belum pernah)
 make up
 
-# ATAU jika ada perubahan dependencies (requirements.txt / package.json), gunakan:
-make build
+# ATAU jika ada perubahan kode (bukan cuma dependencies), rebuild dulu:
+make build-api       # ubah kode backend/ yang dipakai backend-api (FastAPI)
+make build-worker    # ubah kode ml/ atau backend/ yang dipakai celery-worker
+make build-frontend  # ubah kode frontend/
+make build           # rebuild semua service sekaligus (dependency baru di banyak service, atau nggak yakin mana yang kepakai)
 ```
+
+> Container full Docker tidak hot-reload — kode di dalam image cuma ter-update kalau image-nya di-rebuild. `make up` saja tidak akan memuat perubahan kode yang sudah ada di disk.
 
 Perintah di atas akan menyalakan semua services ini:
 - **Frontend** (Next.js) di `http://localhost:3000`
@@ -119,20 +124,22 @@ Agar kode Anda otomatis diformat oleh `ruff` sebelum di-push ke Github:
    make pre-commit
    ```
 
-## Konfigurasi LLM (OpenAI vs Ollama)
-Sistem ini mendukung **Hybrid LLM Provider**. Anda bebas memilih ingin menggunakan **OpenAI API** atau **Ollama (Lokal)** dengan cukup mengubah satu baris di file `.env`:
+## Konfigurasi LLM (OpenAI vs Gemini)
+Sistem ini mendukung provider LLM yang bisa ditukar untuk transkripsi, ringkasan, dan ekstraksi action item — cukup ganti satu baris di file `.env`. Diarisasi (siapa bicara kapan) selalu jalan lokal via pyannote.audio, tidak terpengaruh pilihan provider ini.
 
-### Jika Menggunakan OpenAI (Rekomendasi untuk Laptop Biasa)
+### Jika Menggunakan OpenAI (Default)
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-proj-...
+OPENAI_TRANSCRIBE_MODEL=whisper-1
+OPENAI_MODEL=gpt-4o-mini
 ```
-Anda tidak perlu mendownload model apapun. Semua teks akan diproses di cloud.
 
-### Jika Menggunakan Ollama Lokal (Rekomendasi jika Punya GPU Kuat)
+### Jika Menggunakan Gemini
 ```env
-LLM_PROVIDER=ollama
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
-1. Pastikan Anda telah menginstall aplikasi Ollama di PC Anda (bukan di dalam Docker).
-2. Jalankan perintah `ollama pull qwen2.5:7b` di terminal PC Anda.
-3. Celery worker telah di-set otomatis untuk memanggil Ollama via URL `http://host.docker.internal:11434`.
+
+Setelah ganti nilai, jalankan `docker compose build celery-worker && docker compose up -d celery-worker` supaya celery-worker pakai konfigurasi baru.

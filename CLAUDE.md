@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MeetMate is a fully self-hosted, offline-first meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. No data leaves the machine; all ML runs locally.
+Kioku is a self-hosted meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. Infrastructure (DB, storage, email) is self-hosted, and speaker diarization always runs locally via pyannote.audio — but transcription and summarization go through a cloud LLM API (OpenAI by default, Gemini optional; see "ML Pipeline Setup" below), so audio and transcript text are **not** kept fully on-machine.
 
 **Team:** Audi (Backend), Helena (Frontend), Azmi (ML)
 
@@ -72,11 +72,18 @@ npx shadcn-ui@latest add <component-name>
 ```
 
 ### ML Pipeline Setup
-Transcription, summary, and action item extraction all run on the **Gemini API**. Configure it in `.env`:
+Transcription, summary, and action item extraction run on a switchable LLM provider — **OpenAI** (default) or **Gemini**. Toggle via `LLM_PROVIDER` in `.env`, then `docker compose build celery-worker && docker compose up -d celery-worker` to apply:
 ```env
+LLM_PROVIDER=openai   # or 'gemini'
+
+OPENAI_API_KEY=...
+OPENAI_TRANSCRIBE_MODEL=whisper-1
+OPENAI_MODEL=gpt-4o-mini
+
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.1-flash-lite
 ```
+`gemini-3.1-flash-lite` has a known upstream bug returning `500 INTERNAL` on any audio input (reported June 2026), which is why `openai` is the default for transcription. Diarization is unaffected by this toggle — it always runs locally via pyannote.audio regardless of `LLM_PROVIDER`.
 
 ---
 
@@ -99,11 +106,11 @@ GEMINI_MODEL=gemini-3.1-flash-lite
 1. Organizer uploads audio → `POST /meetings/:id/recording`
 2. Backend saves file to MinIO, enqueues Celery task
 3. Celery worker calls ML pipeline in sequence:
-   - `transcribe(audio_path)` → Gemini API (audio upload + transcription with per-segment speaker labels)
-   - `diarize(audio_path)` → no-op (speaker labeling now happens inside `transcribe`); kept only so the pipeline shape below doesn't need to change
-   - `merge_transcript_diarization(transcript, diarization)` → no-op passthrough when diarization is empty
-   - `extract_summary(transcript_text)` → Gemini API
-   - `extract_action_items(transcript_text, participant_names)` → Gemini API
+   - `transcribe(audio_path)` → OpenAI Whisper API or Gemini API, depending on `LLM_PROVIDER`
+   - `diarize(audio_path)` → pyannote.audio (always local, unaffected by `LLM_PROVIDER`)
+   - `merge_transcript_diarization(transcript, diarization)`
+   - `extract_summary(transcript_text)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
+   - `extract_action_items(transcript_text, participant_names)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
 4. Results saved to DB (Transcript, Summary, ActionItem tables)
 5. Email distributed to all participants automatically
 

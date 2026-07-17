@@ -8,7 +8,7 @@ from app.config import settings
 from app.rate_limit import limiter
 from app.routers import auth, meetings, checkin, recordings, action_items
 
-app = FastAPI(title="MeetMate API")
+app = FastAPI(title="Kioku API")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

@@ -41,7 +41,7 @@ class ActionItem(BaseModel):
 
 ### 1. transcribe
 
-Konversi file audio menjadi teks transkrip, dengan speaker label per segmen (diarization) sudah diminta langsung ke Gemini lewat prompt transkripsi — tidak ada lagi pipeline diarization terpisah.
+Konversi file audio menjadi teks transkrip mentah (tanpa diarization).
 
 ```python
 def transcribe(audio_path: str) -> TranscriptResult:
@@ -50,13 +50,12 @@ def transcribe(audio_path: str) -> TranscriptResult:
         audio_path: path absolut ke file audio lokal
 
     Returns:
-        TranscriptResult dengan segments (sudah ada speaker label per segmen),
-        language, duration
+        TranscriptResult dengan segments, language, duration
 
     Raises:
         FileNotFoundError: jika file tidak ditemukan
-        ValueError: jika format file tidak didukung, atau output Gemini bukan JSON valid
-        RuntimeError: jika GEMINI_API_KEY tidak diset atau Gemini gagal proses
+        ValueError: jika format file tidak didukung
+        RuntimeError: jika Whisper gagal proses
     """
 ```
 
@@ -76,10 +75,10 @@ TranscriptResult(
             text="Oke selamat pagi semua, kita mulai sprint planning."
         ),
         TranscriptSegment(
-            speaker="SPEAKER_01",
+            speaker="SPEAKER_00",
             start=14.5,
             end=28.0,
-            text="Siap, saya sudah review backlog-nya."
+            text="Agenda hari ini ada tiga poin."
         )
     ],
     language="id",
@@ -87,30 +86,44 @@ TranscriptResult(
 )
 ```
 
-> Catatan: `start`/`end` adalah estimasi proporsional dari panjang teks tiap segmen terhadap durasi audio (Gemini tidak mengembalikan timestamp audio yang presisi), bukan hasil forced-alignment.
+> Catatan: Hasil transcribe belum ada diarization. Semua segment speaker-nya "SPEAKER_00". Diarization dilakukan terpisah di fungsi `diarize`, lalu digabungkan di `merge_transcript_diarization`.
 
 ---
 
 ### 2. diarize
 
-**No-op.** Speaker diarization sekarang dilakukan langsung oleh Gemini di dalam `transcribe()`. Fungsi ini dipertahankan (selalu return list kosong) supaya urutan pemanggilan pipeline di bawah tidak perlu diubah.
+Pisahkan segmen audio per speaker (siapa ngomong kapan).
 
 ```python
 def diarize(audio_path: str) -> list[TranscriptSegment]:
     """
     Args:
-        audio_path: tidak dipakai
+        audio_path: path absolut ke file audio lokal (file yang sama dengan transcribe)
 
     Returns:
-        [] selalu
+        list TranscriptSegment dengan speaker label dan timestamp,
+        tapi text masih kosong (diisi saat merge)
+
+    Raises:
+        FileNotFoundError: jika file tidak ditemukan
+        RuntimeError: jika pyannote gagal proses
     """
+```
+
+**Contoh output:**
+```python
+[
+    TranscriptSegment(speaker="SPEAKER_00", start=0.0, end=45.2, text=""),
+    TranscriptSegment(speaker="SPEAKER_01", start=45.2, end=78.9, text=""),
+    TranscriptSegment(speaker="SPEAKER_00", start=78.9, end=120.0, text=""),
+]
 ```
 
 ---
 
 ### 3. merge_transcript_diarization
 
-**Passthrough.** Karena `diarize()` selalu mengembalikan list kosong, fungsi ini langsung mengembalikan `transcript` apa adanya tanpa modifikasi.
+Gabungkan hasil Whisper (text) dengan hasil pyannote (speaker label).
 
 ```python
 def merge_transcript_diarization(
@@ -119,11 +132,12 @@ def merge_transcript_diarization(
 ) -> TranscriptResult:
     """
     Args:
-        transcript: output dari transcribe() (speaker label sudah terisi)
-        diarization: output dari diarize() (selalu kosong)
+        transcript: output dari transcribe()
+        diarization: output dari diarize()
 
     Returns:
-        transcript apa adanya kalau diarization kosong
+        TranscriptResult baru dengan speaker label yang sudah diisi
+        berdasarkan overlap timestamp terbesar antara Whisper dan pyannote
     """
 ```
 
@@ -145,7 +159,7 @@ def extract_summary(transcript_text: str) -> SummaryResult:
         SummaryResult dengan tldr, decisions, topics
 
     Raises:
-        RuntimeError: jika GEMINI_API_KEY tidak diset atau Gemini tidak bisa diakses
+        RuntimeError: jika API provider (OpenAI/Gemini) tidak bisa diakses
         ValueError: jika output LLM tidak valid JSON
     """
 ```
@@ -192,7 +206,7 @@ def extract_action_items(
         list ActionItem. Bisa kosong jika tidak ada action item ditemukan.
 
     Raises:
-        RuntimeError: jika GEMINI_API_KEY tidak diset atau Gemini tidak bisa diakses
+        RuntimeError: jika API provider (OpenAI/Gemini) tidak bisa diakses
         ValueError: jika output LLM tidak valid JSON
     """
 ```
@@ -275,6 +289,6 @@ from ml.transcribe import transcribe
 
 1. Output wajib pakai Pydantic schema yang sudah didefinisikan di atas. Jangan return dict biasa.
 2. Setiap fungsi wajib raise exception yang spesifik (bukan silent fail) supaya Backend bisa handle error dengan benar.
-3. `GEMINI_API_KEY` (dan opsional `GEMINI_MODEL`) harus diset di `.env` sebelum Worker dijalankan — dipakai oleh `transcribe()`, `extract_summary()`, dan `extract_action_items()`.
+3. `OPENAI_API_KEY` (atau `GEMINI_API_KEY` kalau `LLM_PROVIDER=gemini`) dan `HF_TOKEN` harus terisi di `.env` sebelum Worker dijalankan — transcribe/extract lewat API cloud, diarize butuh HF_TOKEN untuk download model pyannote.
 4. Untuk development awal, boleh hardcode `audio_path` di notebook. Tapi function signature harus sudah sesuai dokumen ini sebelum Backend mulai integrasi.
-5. Kalau ada perubahan schema atau function signature, diskusi dulu dengan Audi sebelum diubah. `diarize()` dan `merge_transcript_diarization()` sekarang no-op (lihat bagian di atas) — signature-nya sengaja tidak diubah supaya tidak perlu koordinasi ulang soal urutan pemanggilan pipeline, tapi tetap kasih tahu Audi soal perubahan behavior ini.
+5. Kalau ada perubahan schema atau function signature, diskusi dulu dengan Audi sebelum diubah.

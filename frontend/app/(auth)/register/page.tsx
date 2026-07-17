@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ShieldCheck, User, Mail, Lock, Sparkles } from "lucide-react";
@@ -24,6 +24,13 @@ export default function RegisterPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: "Belum Diisi", color: "bg-slate-200" });
+  const timeoutIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timeoutIds.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -66,10 +73,15 @@ export default function RegisterPage() {
         m.registerUser({ name: formData.name, email: formData.email, password: formData.password })
       );
       toast.success("Pendaftaran berhasil! Silakan login.");
-      setTimeout(() => {
+      // ID timeout disimpan & dibersihkan saat unmount (lihat pola yang sama di
+      // login/page.tsx) — supaya navigasi ke halaman lain di tengah animasi tidak
+      // ikut "diseret" balik oleh router.push yang tertunda.
+      const t1 = setTimeout(() => {
         setIsFlying(true);
-        setTimeout(() => router.push("/login"), 1000);
+        const t2 = setTimeout(() => router.push("/login"), 1000);
+        timeoutIds.current.push(t2);
       }, 600);
+      timeoutIds.current.push(t1);
     } catch (err: any) {
       setFormError(extractApiError(err, "Pendaftaran gagal. Coba lagi."));
       setIsLoading(false);

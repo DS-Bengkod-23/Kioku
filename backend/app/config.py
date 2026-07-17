@@ -38,12 +38,22 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
-    # Gemini (dipakai untuk transkripsi, diarization, summary, dan action item extraction)
+    # Provider LLM aktif untuk transcribe + summary/action item extraction.
+    # Pilihan: 'openai' atau 'gemini'. Ganti nilai ini di .env lalu rebuild+restart
+    # celery-worker untuk pindah provider tanpa ubah kode.
+    LLM_PROVIDER: str = "openai"
+
+    # Gemini (dipakai untuk transcribe, summary, dan action item extraction kalau LLM_PROVIDER=gemini)
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
-    # Whisper
-    WHISPER_MODEL: str = "large-v3"
+    # OpenAI (dipakai untuk transcribe, summary, dan action item extraction kalau LLM_PROVIDER=openai)
+    OPENAI_API_KEY: str = ""
+    OPENAI_TRANSCRIBE_MODEL: str = "whisper-1"
+    OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # Hugging Face
+    HF_TOKEN: str = ""
 
     # File upload
     MAX_UPLOAD_SIZE_MB: int = 200
@@ -67,6 +77,10 @@ class Settings(BaseSettings):
     @property
     def allowed_audio_formats_list(self) -> list[str]:
         return [fmt.strip() for fmt in self.ALLOWED_AUDIO_FORMATS.split(",")]
+
+    @property
+    def max_audio_duration_seconds(self) -> float:
+        return self.MAX_AUDIO_DURATION_HOURS * 3600
 
 
 settings = Settings()

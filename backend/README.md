@@ -1,6 +1,6 @@
-# MeetMate Backend
+# Kioku Backend
 
-FastAPI + Celery backend untuk MeetMate.
+FastAPI + Celery backend untuk Kioku.
 
 **Owner:** Audi
 

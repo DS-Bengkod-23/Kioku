@@ -91,15 +91,20 @@ export default function CheckInPage({ params }: CheckInPageProps) {
       await confirmCheckin(params.token);
       setCheckedIn(true);
     } catch (err: any) {
-      if (err?.response?.status === 404) {
+      const status = err?.response?.status;
+      if (status === 404) {
         // Token benar-benar tidak ditemukan/invalid — baru tampilkan halaman error penuh.
         setTokenError(true);
-      } else {
-        // Mis. 403 "Absensi sudah ditutup"/"Waktu absensi sudah berakhir" —
+      } else if (status === 403) {
+        // 403 "Absensi sudah ditutup"/"Waktu absensi sudah berakhir" —
         // link-nya tetap valid, cuma presensinya sudah tertutup. Jangan hancurkan
         // seluruh halaman, cukup tampilkan pesannya dan perbarui status lokal.
         toast.error(extractApiError(err, "Gagal melakukan check-in. Coba lagi."));
         setMeetingInfo((prev) => (prev ? { ...prev, attendance_locked: true } : prev));
+      } else {
+        // Network error/500/dll — bukan berarti presensi ditutup, jangan ubah
+        // attendance_locked supaya user bisa coba lagi.
+        toast.error(extractApiError(err, "Gagal melakukan check-in. Coba lagi."));
       }
     } finally {
       setLoading(false);
@@ -137,8 +142,8 @@ export default function CheckInPage({ params }: CheckInPageProps) {
     setPdfDownloading(true);
     try {
       await downloadCheckinNotulenPdf(params.token, meetingInfo.meeting_title);
-    } catch {
-      // silently fail — user can retry
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal mengunduh notulen PDF. Coba lagi."));
     } finally {
       setPdfDownloading(false);
     }

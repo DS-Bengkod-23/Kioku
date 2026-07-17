@@ -1,4 +1,4 @@
-.PHONY: init up down logs migrate restart build check pre-commit infra build-worker
+.PHONY: init up down logs migrate restart build check pre-commit infra build-worker build-api build-frontend
 
 # Setup awal — bikin .env dari .env.example kalau belum ada (tidak menimpa yang sudah ada)
 init:
@@ -54,3 +54,11 @@ infra:
 build-worker:
 	docker compose build celery-worker
 	docker compose up -d --no-deps celery-worker
+
+# Rebuild backend-api saja (jika ada perubahan di backend/ yang dipakai FastAPI, bukan celery-worker)
+build-api:
+	docker compose up -d --build --no-deps backend-api
+
+# Rebuild frontend saja (jika ada perubahan di frontend/)
+build-frontend:
+	docker compose up -d --build --no-deps frontend

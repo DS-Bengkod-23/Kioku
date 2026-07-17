@@ -1,6 +1,6 @@
 # Backend Usage Guide
 
-Panduan setup, menjalankan, dan memverifikasi backend MeetMate berjalan dengan benar.
+Panduan setup, menjalankan, dan memverifikasi backend Kioku berjalan dengan benar.
 
 ---
 

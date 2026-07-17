@@ -20,6 +20,9 @@ def create_invitations(db: Session, meeting_id: uuid.UUID, participant_ids: list
         )
         db.add(invitation)
         invitations.append(invitation)
-        
-    db.commit()
+
+    # Sengaja tidak commit di sini — dipanggil dari tengah transaksi update_meeting()/
+    # create_meeting(), commit di sini akan memaksa persist perubahan lain yang masih
+    # pending di session (mis. setattr field meeting, db.delete participant) sebelum
+    # seluruh operasi selesai, memecah atomicity-nya. Caller yang commit.
     return invitations
