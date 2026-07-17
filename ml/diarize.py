@@ -58,6 +58,13 @@ def _load_audio(audio_path: str):
 
 
 def diarize(audio_path: str) -> list[TranscriptSegment]:
+    # Kalau LLM_PROVIDER=gemini, transcribe() sudah minta Gemini melabeli speaker
+    # langsung di prompt transkripsi (lihat _transcribe_gemini di transcribe.py) —
+    # skip pyannote sepenuhnya di sini, jangan load model/HF_TOKEN/torch sama
+    # sekali, supaya jalur Gemini murni tidak bergantung ke pyannote.
+    if os.getenv("LLM_PROVIDER", "openai").lower() == "gemini":
+        return []
+
     # PermanentMLError (bukan FileNotFoundError polos) supaya Celery task tidak
     # buang 3x retry untuk error yang pasti gagal identik lagi.
     if not os.path.exists(audio_path):
@@ -82,21 +89,24 @@ def merge_transcript_diarization(
     transcript: TranscriptResult,
     diarization: list[TranscriptSegment],
 ) -> TranscriptResult:
+    if not diarization:
+        # Kosong berarti diarize() di-skip (jalur Gemini, speaker sudah dilabeli
+        # transcribe() sendiri) — jangan reset ke SPEAKER_00, biarkan apa adanya.
+        return transcript
+
     for segment in transcript.segments:
         mid = (segment.start + segment.end) / 2
-        matched = "SPEAKER_00"
-        if diarization:
-            inside = [turn for turn in diarization if turn.start <= mid <= turn.end]
-            if inside:
-                matched = inside[0].speaker
-            else:
-                # mid jatuh di jeda antar-turn (boundary Whisper vs pyannote jarang
-                # persis sama) — pakai speaker dari turn terdekat, bukan hardcode
-                # SPEAKER_00 yang mem-bias semua jeda ke speaker pertama.
-                matched = min(
-                    diarization,
-                    key=lambda turn: min(abs(mid - turn.start), abs(mid - turn.end)),
-                ).speaker
+        inside = [turn for turn in diarization if turn.start <= mid <= turn.end]
+        if inside:
+            matched = inside[0].speaker
+        else:
+            # mid jatuh di jeda antar-turn (boundary Whisper vs pyannote jarang
+            # persis sama) — pakai speaker dari turn terdekat, bukan hardcode
+            # SPEAKER_00 yang mem-bias semua jeda ke speaker pertama.
+            matched = min(
+                diarization,
+                key=lambda turn: min(abs(mid - turn.start), abs(mid - turn.end)),
+            ).speaker
         segment.speaker = matched
 
     return transcript
