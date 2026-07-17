@@ -1,0 +1,396 @@
+{
+  "samples": [
+    {
+      "sample": "sample_02",
+      "wer": 0.1379,
+      "action_item_f1": 0.8,
+      "golden_action_items": [
+        {
+          "task": "buat laporan tertulis soal vendor alternatif",
+          "assignee_name": "Reza",
+          "due_date_text": null
+        },
+        {
+          "task": "revisi anggaran logistik dengan buffer tambahan 10%",
+          "assignee_name": "Sari",
+          "due_date_text": "akhir minggu ini"
+        },
+        {
+          "task": "kirimkan daftar vendor baru",
+          "assignee_name": "Reza",
+          "due_date_text": "Kamis"
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Membuat laporan tertulis mengenai vendor logistik alternatif",
+          "assignee_name": "Reza",
+          "due_date_text": "2023-11-23"
+        },
+        {
+          "task": "Merevisi anggaran dengan menambahkan buffer 10 persen untuk logistik",
+          "assignee_name": "Sari",
+          "due_date_text": "2023-11-26"
+        }
+      ]
+    },
+    {
+      "sample": "sample_03",
+      "wer": 0.1268,
+      "action_item_f1": 1.0,
+      "golden_action_items": [
+        {
+          "task": "tanyakan brand guideline kepada klien saat meeting",
+          "assignee_name": "Lina",
+          "due_date_text": "minggu depan"
+        },
+        {
+          "task": "setup struktur project dan environment",
+          "assignee_name": "Andi",
+          "due_date_text": null
+        },
+        {
+          "task": "riset referensi desain yang relevan dengan industri klien",
+          "assignee_name": "Lina",
+          "due_date_text": null
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Menanyakan brand guidelines kepada klien",
+          "assignee_name": "Lina",
+          "due_date_text": null
+        },
+        {
+          "task": "Setup struktur project dan environment",
+          "assignee_name": "Andi",
+          "due_date_text": null
+        },
+        {
+          "task": "Riset referensi desain yang relevan dengan industri klien",
+          "assignee_name": "Lina",
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_04",
+      "wer": 0.1679,
+      "action_item_f1": 1.0,
+      "golden_action_items": [
+        {
+          "task": "kirimkan poin-poin materi simulasi kerja yang dianggap penting ke Maya",
+          "assignee_name": "Fajar",
+          "due_date_text": "Jumat"
+        },
+        {
+          "task": "siapkan program onboarding",
+          "assignee_name": "Maya",
+          "due_date_text": "dua minggu sebelum karyawan baru masuk"
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Mengirimkan poin-poin materi simulasi kerja yang spesifik untuk divisi",
+          "assignee_name": "Fajar",
+          "due_date_text": "2024-05-24"
+        },
+        {
+          "task": "Menyelesaikan rancangan program onboarding dua minggu sebelum karyawan baru masuk",
+          "assignee_name": "Maya",
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_05",
+      "wer": 0.1458,
+      "action_item_f1": 0.0,
+      "golden_action_items": [
+        {
+          "task": "buat brief konten bersama supaya semua elemen aligned",
+          "assignee_name": "Doni",
+          "due_date_text": null
+        },
+        {
+          "task": "kirimkan daftar kandidat micro-influencer ke Nita untuk approval",
+          "assignee_name": "Putri",
+          "due_date_text": null
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Membuat brief konten bersama untuk menyelaraskan pesan antara blog dan media sosial",
+          "assignee_name": "Noni",
+          "due_date_text": null
+        },
+        {
+          "task": "Melakukan posting harian di media sosial selama dua minggu sebelum peluncuran dengan konten countdown dan teaser",
+          "assignee_name": "Putri",
+          "due_date_text": null
+        },
+        {
+          "task": "Menyusun dan mengirimkan daftar kandidat mikro influencer untuk persetujuan",
+          "assignee_name": "Putri",
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_06",
+      "wer": 0.1212,
+      "action_item_f1": 0.75,
+      "golden_action_items": [
+        {
+          "task": "push hotfix bug notifikasi",
+          "assignee_name": "Yogi",
+          "due_date_text": "besok sore"
+        },
+        {
+          "task": "balas semua tiket keluhan dengan informasi update perbaikan",
+          "assignee_name": "Rina",
+          "due_date_text": null
+        },
+        {
+          "task": "tawarkan perpanjangan berlangganan satu minggu untuk pelanggan premium yang terdampak",
+          "assignee_name": "Rina",
+          "due_date_text": null
+        },
+        {
+          "task": "kabari Tono begitu hotfix live",
+          "assignee_name": "Yogi",
+          "due_date_text": null
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Memperbaiki bug notifikasi dengan melakukan push hotfix",
+          "assignee_name": "Yogi",
+          "due_date_text": "2024-05-23"
+        },
+        {
+          "task": "Membalas tiket pelanggan mengenai masalah notifikasi",
+          "assignee_name": "Rina",
+          "due_date_text": null
+        },
+        {
+          "task": "Menawarkan kompensasi perpanjangan berlangganan satu minggu kepada pelanggan premium",
+          "assignee_name": "Rina",
+          "due_date_text": null
+        },
+        {
+          "task": "Mengabari Pak Tono segera setelah hotfix live",
+          "assignee_name": "Yogi",
+          "due_date_text": "2024-05-23"
+        }
+      ]
+    },
+    {
+      "sample": "sample_07",
+      "wer": 0.2197,
+      "action_item_f1": 0.6667,
+      "golden_action_items": [
+        {
+          "task": "kirim revisi spreadsheet anggaran ke Pak Wahyu dan Bram",
+          "assignee_name": "Ibu Citra",
+          "due_date_text": "sore ini"
+        },
+        {
+          "task": "sepakati finalisasi anggaran via email",
+          "assignee_name": null,
+          "due_date_text": "sebelum akhir minggu"
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Mengirim revisi spreadsheet anggaran kepada Pak Wahyu dan Bram",
+          "assignee_name": "Ibu Citra",
+          "due_date_text": "2024-05-24"
+        },
+        {
+          "task": "Menyetujui finalisasi anggaran via email",
+          "assignee_name": "Pak Wahyu",
+          "due_date_text": "2024-05-26"
+        },
+        {
+          "task": "Menyetujui finalisasi anggaran via email",
+          "assignee_name": "Bram",
+          "due_date_text": "2024-05-26"
+        },
+        {
+          "task": "Menyetujui finalisasi anggaran via email",
+          "assignee_name": "Ibu Citra",
+          "due_date_text": "2024-05-26"
+        }
+      ]
+    },
+    {
+      "sample": "sample_08",
+      "wer": 0.1484,
+      "action_item_f1": 0.75,
+      "golden_action_items": [
+        {
+          "task": "kirim kontak pengelola gedung ke Surya",
+          "assignee_name": "Wati",
+          "due_date_text": null
+        },
+        {
+          "task": "hubungi pihak pengelola gedung untuk percepat izin akses",
+          "assignee_name": "Surya",
+          "due_date_text": null
+        },
+        {
+          "task": "mulai instalasi di tiga lokasi yang sudah siap",
+          "assignee_name": "Dedi",
+          "due_date_text": null
+        },
+        {
+          "task": "update progress kepada Surya setiap sore",
+          "assignee_name": "Dedi",
+          "due_date_text": null
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Melakukan follow up izin akses untuk dua lokasi survei yang tersisa",
+          "assignee_name": "Wati",
+          "due_date_text": null
+        },
+        {
+          "task": "Membantu menghubungi pihak pengelola gedung terkait izin akses",
+          "assignee_name": "Surya",
+          "due_date_text": null
+        },
+        {
+          "task": "Memulai instalasi di tiga lokasi yang sudah siap",
+          "assignee_name": "Dedi",
+          "due_date_text": null
+        },
+        {
+          "task": "Memberikan update progres setiap sore",
+          "assignee_name": "Wati",
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_09",
+      "wer": 0.184,
+      "action_item_f1": 0.6667,
+      "golden_action_items": [
+        {
+          "task": "fix bug timeout di halaman konfirmasi pembayaran",
+          "assignee_name": "Sinta",
+          "due_date_text": "hari ini"
+        },
+        {
+          "task": "fix bug tampilan konfirmasi yang tidak muncul setelah transaksi berhasil",
+          "assignee_name": "Sinta",
+          "due_date_text": "Selasa"
+        },
+        {
+          "task": "jalankan regression test setelah Sinta fix bug",
+          "assignee_name": "Ilham",
+          "due_date_text": "Selasa"
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Memperbaiki bug timeout pada flow pembayaran transfer bank",
+          "assignee_name": "Sinta",
+          "due_date_text": "2025-05-20"
+        },
+        {
+          "task": "Memperbaiki bug tampilan konfirmasi pada flow pembayaran transfer bank",
+          "assignee_name": "Sinta",
+          "due_date_text": "2025-05-20"
+        },
+        {
+          "task": "Melakukan regression test setelah perbaikan bug selesai",
+          "assignee_name": "Ilham",
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_10",
+      "wer": 0.1705,
+      "action_item_f1": 0.5714,
+      "golden_action_items": [
+        {
+          "task": "proses pemesanan katering dan perlengkapan meja untuk 100 orang",
+          "assignee_name": "Taufik",
+          "due_date_text": "hari ini"
+        },
+        {
+          "task": "buat checklist final acara dan bagikan ke Pak Rizal dan Taufik",
+          "assignee_name": "Mega",
+          "due_date_text": null
+        },
+        {
+          "task": "cek ulang persiapan acara bersama",
+          "assignee_name": null,
+          "due_date_text": "H-3 acara"
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Konfirmasi jumlah peserta untuk kebutuhan logistik",
+          "assignee_name": "Mega",
+          "due_date_text": "2024-05-23"
+        },
+        {
+          "task": "Proses pemesanan catering dan perlengkapan meja",
+          "assignee_name": "Taufik",
+          "due_date_text": "2024-05-22"
+        },
+        {
+          "task": "Membuat checklist final dan membagikannya ke Pak Rizal dan Taufik",
+          "assignee_name": "Mega",
+          "due_date_text": null
+        },
+        {
+          "task": "Melakukan pengecekan checklist final bersama",
+          "assignee_name": null,
+          "due_date_text": null
+        }
+      ]
+    },
+    {
+      "sample": "sample_11",
+      "wer": 0.1802,
+      "action_item_f1": 0.8,
+      "golden_action_items": [
+        {
+          "task": "buat grup koordinasi tim",
+          "assignee_name": "Bu Laras",
+          "due_date_text": null
+        },
+        {
+          "task": "buat jadwal weekly check-in singkat",
+          "assignee_name": "Bu Laras",
+          "due_date_text": null
+        }
+      ],
+      "predicted_action_items": [
+        {
+          "task": "Mendiskusikan tugas bersama lebih awal dan membagi tugas sejak awal",
+          "assignee_name": "Agus",
+          "due_date_text": null
+        },
+        {
+          "task": "Membentuk grup koordinasi tim",
+          "assignee_name": "Bu Laras",
+          "due_date_text": null
+        },
+        {
+          "task": "Membuat jadwal weekly check-in singkat",
+          "assignee_name": "Bu Laras",
+          "due_date_text": null
+        }
+      ]
+    }
+  ],
+  "avg_wer": 0.16024,
+  "avg_f1": 0.7004799999999999
+}
