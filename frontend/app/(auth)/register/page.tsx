@@ -7,6 +7,7 @@ import { Eye, EyeOff, ShieldCheck, User, Mail, Lock, Sparkles } from "lucide-rea
 import { toast } from "sonner";
 import { FormError } from "@/components/ui/form-error";
 import { extractApiError } from "@/lib/utils";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -84,6 +85,38 @@ export default function RegisterPage() {
       timeoutIds.current.push(t1);
     } catch (err: any) {
       setFormError(extractApiError(err, "Pendaftaran gagal. Coba lagi."));
+      setIsLoading(false);
+    }
+  };
+
+  // Daftar & login dengan Google itu satu alur yang sama (backend find-or-create
+  // user dari google_sub) — beda dari daftar password yang harus login manual
+  // sesudahnya, di sini langsung dianggap sudah login begitu dapat JWT balik.
+  const handleGoogleCredential = async (idToken: string) => {
+    setIsLoading(true);
+    setFormError(null);
+    try {
+      const data = await import("@/lib/api").then(m => m.loginWithGoogle(idToken));
+      const userSession = {
+        name: data.name || data.email.split("@")[0],
+        email: data.email,
+        role: "Team Member",
+        department: "Product Development",
+        joinDate: new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
+        bio: "",
+      };
+      localStorage.setItem("user_profile", JSON.stringify(userSession));
+      window.dispatchEvent(new Event("profileUpdate"));
+
+      toast.success("Berhasil daftar dengan Google!");
+      const t1 = setTimeout(() => {
+        setIsFlying(true);
+        const t2 = setTimeout(() => router.replace("/meetings"), 1000);
+        timeoutIds.current.push(t2);
+      }, 600);
+      timeoutIds.current.push(t1);
+    } catch (err: any) {
+      setFormError(extractApiError(err, "Daftar dengan Google gagal. Coba lagi."));
       setIsLoading(false);
     }
   };
@@ -261,6 +294,14 @@ export default function RegisterPage() {
                 {isLoading ? "Mendaftarkan..." : "Daftar Akun Baru"}
               </button>
             </form>
+
+            <div className="flex items-center gap-3 my-6">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Atau</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <GoogleSignInButton onCredential={handleGoogleCredential} text="signup_with" />
 
             <div className="text-center mt-6">
               <p className="text-xs text-slate-500 font-medium">

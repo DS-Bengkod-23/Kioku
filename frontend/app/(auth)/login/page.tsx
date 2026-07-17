@@ -7,6 +7,7 @@ import { Eye, EyeOff, Sparkles, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { FormError } from "@/components/ui/form-error";
 import { extractApiError } from "@/lib/utils";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,6 +28,33 @@ export default function LoginPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // Dipakai bareng oleh login password & login Google — satu-satunya beda antara
+  // keduanya cuma dari mana `name`/`email` didapat (form vs response backend).
+  const completeLogin = (name: string, email: string) => {
+    const userSession = {
+      name: name || email.split("@")[0],
+      email,
+      role: "Team Member",
+      department: "Product Development",
+      joinDate: new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
+      bio: "",
+    };
+    localStorage.setItem("user_profile", JSON.stringify(userSession));
+    window.dispatchEvent(new Event("profileUpdate"));
+
+    toast.success("Login berhasil! Menyiapkan dashboard Anda...");
+    // ID timeout disimpan & dibersihkan saat unmount — tanpa ini, kalau user
+    // pindah halaman (mis. klik "Daftar akun gratis") di antara submit dan
+    // animasi selesai, router.replace tetap tereksekusi dan menyeret user
+    // balik ke /meetings di tengah-tengah halaman lain.
+    const t1 = setTimeout(() => {
+      setIsFlying(true);
+      const t2 = setTimeout(() => router.replace("/meetings"), 1000);
+      timeoutIds.current.push(t2);
+    }, 600);
+    timeoutIds.current.push(t1);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -34,31 +62,21 @@ export default function LoginPage() {
 
     try {
       const data = await import("@/lib/api").then(m => m.loginUser(formData));
-
-      const userSession = {
-        name: data.name || formData.email.split("@")[0],
-        email: formData.email,
-        role: "Team Member",
-        department: "Product Development",
-        joinDate: new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" }),
-        bio: "",
-      };
-      localStorage.setItem("user_profile", JSON.stringify(userSession));
-      window.dispatchEvent(new Event("profileUpdate"));
-
-      toast.success("Login berhasil! Menyiapkan dashboard Anda...");
-      // ID timeout disimpan & dibersihkan saat unmount — tanpa ini, kalau user
-      // pindah halaman (mis. klik "Daftar akun gratis") di antara submit dan
-      // animasi selesai, router.replace tetap tereksekusi dan menyeret user
-      // balik ke /meetings di tengah-tengah halaman lain.
-      const t1 = setTimeout(() => {
-        setIsFlying(true);
-        const t2 = setTimeout(() => router.replace("/meetings"), 1000);
-        timeoutIds.current.push(t2);
-      }, 600);
-      timeoutIds.current.push(t1);
+      completeLogin(data.name, formData.email);
     } catch (err: any) {
       setFormError(extractApiError(err, "Email atau password salah."));
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleCredential = async (idToken: string) => {
+    setIsLoading(true);
+    setFormError(null);
+    try {
+      const data = await import("@/lib/api").then(m => m.loginWithGoogle(idToken));
+      completeLogin(data.name, data.email);
+    } catch (err: any) {
+      setFormError(extractApiError(err, "Login dengan Google gagal. Coba lagi."));
       setIsLoading(false);
     }
   };
@@ -168,6 +186,14 @@ export default function LoginPage() {
                 {isLoading ? "Memverifikasi..." : "Masuk Sekarang"}
               </button>
             </form>
+
+            <div className="flex items-center gap-3 my-6">
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Atau</span>
+              <div className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <GoogleSignInButton onCredential={handleGoogleCredential} text="signin_with" />
 
             <div className="text-center mt-6">
               <p className="text-xs text-slate-500">

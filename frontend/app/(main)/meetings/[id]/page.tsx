@@ -39,6 +39,17 @@ function formatDate(isoString: string) {
   });
 }
 
+// Samain wording sama app/check-in/[token]/page.tsx biar konsisten antara view organizer & peserta
+const IN_PROGRESS_STATUSES = ["queued", "transcribing", "diarizing", "extracting", "sending_email"];
+
+const PROCESSING_LABEL: Record<string, string> = {
+  queued: "Menunggu antrian...",
+  transcribing: "Sedang transkripsi audio...",
+  diarizing: "Mengidentifikasi pembicara...",
+  extracting: "Membuat ringkasan...",
+  sending_email: "Mengirim notulen...",
+};
+
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -59,7 +70,7 @@ export default function MeetingDetailPage() {
 
   // Auto-enable polling saat refresh jika ML masih memproses
   useEffect(() => {
-    if (["queued", "transcribing", "diarizing", "extracting", "sending_email"].includes(meeting?.processing_status)) {
+    if (IN_PROGRESS_STATUSES.includes(meeting?.processing_status)) {
       setPollingEnabled(true);
     }
   }, [meeting?.processing_status]);
@@ -576,9 +587,11 @@ export default function MeetingDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-[260px] text-slate-500 text-xs italic">
-                    {processingStatus === "transcribing" || processingStatus === "diarizing" || processingStatus === "extracting"
-                      ? "AI sedang menganalisis berkas suara..."
+                  <div className="flex items-center justify-center h-[260px] text-slate-500 text-xs italic text-center px-6">
+                    {isFailed
+                      ? "Notulen gagal dibuat — lihat detail error di kartu rekaman."
+                      : processingStatus && IN_PROGRESS_STATUSES.includes(processingStatus)
+                      ? PROCESSING_LABEL[processingStatus] ?? "AI sedang memproses..."
                       : "Silakan unggah rekaman audio rapat untuk memicu notulen AI."}
                   </div>
                 )}

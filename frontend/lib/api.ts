@@ -66,6 +66,19 @@ export const updateProfile = async (data: {
   return response.data;
 };
 
+// Login/register lewat Google SSO — bentuk response HARUS sama dengan loginUser()
+// di atas (access_token + name), plus email (loginUser tidak butuh ini karena FE
+// sudah punya email dari input form; alur Google tidak punya sumber lain buat email).
+// Lihat plan/handoff-google-integration.md — endpoint ini belum ada di backend,
+// panggilan ini akan 404 sampai BE mengimplementasikan POST /auth/google.
+export const loginWithGoogle = async (idToken: string) => {
+  const response = await api.post("/auth/google", { id_token: idToken });
+  const { access_token } = response.data;
+  localStorage.setItem("access_token", access_token);
+  document.cookie = `access_token=${access_token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+  return response.data;
+};
+
 export const logoutUser = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("user_profile");
@@ -269,6 +282,30 @@ export const createActionItem = async (
 ) => {
   const response = await api.post(`/meetings/${meetingId}/action-items`, data);
   return response.data;
+};
+
+// ==========================================
+// GOOGLE CALENDAR SYNC
+// Belum ada di backend — endpoint sesuai plan/handoff-google-integration.md,
+// akan 404 sampai BE mengimplementasikannya. FE dibangun duluan (parallel dev),
+// nanti di-debug bareng begitu BE siap.
+// ==========================================
+
+export const getCalendarStatus = async () => {
+  const response = await api.get("/me/calendar-status");
+  return response.data;
+};
+
+export const disconnectCalendar = async () => {
+  const response = await api.delete("/auth/google/calendar");
+  return response.data;
+};
+
+// Bukan panggilan axios — ini cuma redirect penuh ke backend (OAuth consent screen),
+// jadi cukup bangun URL-nya, konsumennya pakai window.location.href langsung.
+export const getGoogleCalendarConnectUrl = () => {
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  return `${base}/auth/google/calendar/connect`;
 };
 
 export default api;
