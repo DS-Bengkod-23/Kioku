@@ -5,9 +5,12 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+from google.auth import exceptions as google_exceptions
 from app.config import settings
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, AuthProvider
 from app.schemas.auth import UserProfileUpdateRequest
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -51,6 +54,49 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exc
+    return user
+
+
+def authenticate_google(db: Session, id_token_str: str) -> User:
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            id_token_str, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+        )
+    except (ValueError, google_exceptions.GoogleAuthError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ID token Google tidak valid atau sudah expired",
+        )
+
+    if not payload.get("email_verified"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email akun Google belum diverifikasi",
+        )
+
+    google_sub = payload["sub"]
+    email = payload["email"]
+    name = payload.get("name", email)
+
+    user = db.query(User).filter(User.google_sub == google_sub).first()
+    if user is None:
+        # Auto-link ke akun password yang sudah ada dengan email sama —
+        # email Google selalu terverifikasi, jadi email sama = orang sama.
+        user = db.query(User).filter(User.email == email).first()
+        if user is not None:
+            user.google_sub = google_sub
+        else:
+            user = User(
+                id=uuid.uuid4(),
+                email=email,
+                name=name,
+                password_hash=None,
+                auth_provider=AuthProvider.google,
+                google_sub=google_sub,
+            )
+            db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
 

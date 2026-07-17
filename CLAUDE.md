@@ -208,7 +208,9 @@ All ML functions must raise specific exceptions (not silent fail) and return Pyd
 
 ## Auth Model
 
-JWT + bcrypt. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use and do not require login. They intentionally never expire (participants can revisit the check-in portal — notulen, action items — at any time); the check-in *action* itself is separately gated by `attendance_locked` and by the meeting's `scheduled_at + duration_minutes` window.
+JWT + bcrypt, plus optional Google SSO. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use and do not require login. They intentionally never expire (participants can revisit the check-in portal — notulen, action items — at any time); the check-in *action* itself is separately gated by `attendance_locked` and by the meeting's `scheduled_at + duration_minutes` window.
+
+**Google SSO:** `POST /auth/google` accepts `{ "id_token": "<Google ID token>" }` (verified via `google-auth` against `GOOGLE_CLIENT_ID`, not the authorization-code flow) and returns the same `TokenResponse` shape as `POST /auth/login`. `User.password_hash` is nullable — Google-only accounts have no password. `User.auth_provider` (`"local"` | `"google"`) records how the account was first created; `User.google_sub` is the unique Google account identifier used to look up returning Google users. **Account linking is automatic**: if a Google login's email matches an existing local (password) account, `google_sub` is attached to that same account rather than creating a duplicate — Google always verifies email ownership, so same email is treated as the same person. No domain restriction (`hd` claim) is currently enforced; any Google account can sign in. Toggle the whole feature off via `GOOGLE_SSO_ENABLED=false` in `.env` (endpoint returns 404 when disabled) without a redeploy.
 
 ---
 
