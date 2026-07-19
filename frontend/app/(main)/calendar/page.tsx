@@ -2,9 +2,11 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CalendarCheck, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMeetings } from "@/hooks/useMeetings";
+import { useCalendarStatus } from "@/hooks/useCalendar";
+import { getGoogleCalendarConnectUrl } from "@/lib/api";
 import type { MeetingListItem, MeetingStatus } from "@/types";
 
 const STATUS_DOT: Record<MeetingStatus, string> = {
@@ -34,6 +36,12 @@ export default function CalendarPage() {
   // sekaligus, backend perlu filter date_from/date_to (lihat Bug 7).
   const { data, isLoading, isError } = useMeetings({ limit: 100 });
   const meetings: MeetingListItem[] = data?.items ?? [];
+
+  // Banner "hubungkan Calendar" cuma di sini, bukan pindahin manajemen koneksinya —
+  // status/disconnect tetap di Profile (satu sumber kebenaran), ini cuma jalan
+  // pintas biar gak kelewat karena orang jarang buka Profile tanpa alasan spesifik.
+  const { data: calendarStatus, isLoading: isCalendarLoading } = useCalendarStatus();
+  const showConnectCalendarBanner = !isCalendarLoading && !calendarStatus?.connected;
 
   const meetingsByDate = useMemo(() => {
     const map = new Map<string, MeetingListItem[]>();
@@ -107,6 +115,27 @@ export default function CalendarPage() {
             </button>
           </div>
         </div>
+
+        {/* Banner ajakan hubungkan Google Calendar — cuma muncul kalau belum connect */}
+        {showConnectCalendarBanner && (
+          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-white text-indigo-600 shrink-0">
+                <CalendarCheck size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Rapatmu belum otomatis masuk ke Google Calendar</p>
+                <p className="text-xs text-slate-500 mt-0.5">Hubungkan sekali, semua rapat berikutnya otomatis tersinkron.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => { window.location.href = getGoogleCalendarConnectUrl(); }}
+              className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm"
+            >
+              Hubungkan
+            </button>
+          </div>
+        )}
 
         {/* GRID + SELECTED DAY LIST */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">

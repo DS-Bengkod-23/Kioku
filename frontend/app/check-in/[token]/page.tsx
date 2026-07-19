@@ -249,13 +249,13 @@ export default function CheckInPage({ params }: CheckInPageProps) {
                     </div>
                   </div>
                 ) : meetingInfo.attendance_locked ? (
-                  <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-4 bg-rose-50 border border-rose-100 rounded-xl p-4">
+                    <div className="h-10 w-10 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
                       <Lock size={18} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-slate-600">Presensi Ditutup</p>
-                      <p className="text-xs text-slate-400 mt-0.5">Waktu check-in sudah berakhir.</p>
+                      <p className="text-sm font-bold text-rose-700">Presensi Ditutup</p>
+                      <p className="text-xs text-rose-500 mt-0.5">Waktu check-in sudah berakhir.</p>
                     </div>
                   </div>
                 ) : (
@@ -267,7 +267,7 @@ export default function CheckInPage({ params }: CheckInPageProps) {
                     {loading ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
-                      <><CheckCircle2 size={15} /> Check In Sekarang</>
+                      <><CheckCircle2 size={15} /> Presensi Sekarang</>
                     )}
                   </button>
                 )}
