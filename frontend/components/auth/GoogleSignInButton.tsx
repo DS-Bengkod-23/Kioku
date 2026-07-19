@@ -42,7 +42,10 @@ export default function GoogleSignInButton({ onCredential, text = "signin_with" 
       window.google.accounts.id.renderButton(containerRef.current, {
         theme: "outline",
         size: "large",
-        width: 320,
+        // Samain lebar sama elemen lain di form (mis. tombol "Masuk Sekarang" yang
+        // w-full) — Google gak punya opsi width "auto"/"100%", jadi diukur manual
+        // dari lebar container-nya sendiri. Google clamp nilai ini maks. 400px.
+        width: Math.min(containerRef.current.offsetWidth, 400),
         text,
       });
     };

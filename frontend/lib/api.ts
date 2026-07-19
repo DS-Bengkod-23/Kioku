@@ -188,6 +188,19 @@ export const deleteRecording = async (meetingId: string) => {
   await api.delete(`/meetings/${meetingId}/recording`);
 };
 
+// Belum ada di backend — lihat plan/handoff-audio-playback-reminder.md.
+// file_url di RecordingResponse cuma object key MinIO mentah, bukan URL yang bisa
+// diakses langsung, jadi <audio src> gak bisa dipasangin ke situ. Endpoint ini
+// diasumsikan balikin bytes audio mentah (bukan JSON) di belakang auth Bearer yang
+// sama kayak endpoint lain — makanya diambil sebagai blob lalu dikonversi ke object
+// URL lokal, pola yang sama dengan downloadNotulenPdf() di atas.
+export const getRecordingAudioBlobUrl = async (meetingId: string): Promise<string> => {
+  const response = await api.get(`/meetings/${meetingId}/recording/audio`, {
+    responseType: "blob",
+  });
+  return URL.createObjectURL(response.data);
+};
+
 // ==========================================
 // CHECK-IN (Public, No Auth)
 // ==========================================
