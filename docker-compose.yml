@@ -54,6 +54,27 @@ services:
       redis:
         condition: service_healthy
 
+  celery-beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.worker
+    container_name: meetmate_celery_beat
+    restart: unless-stopped
+    command: ["celery", "-A", "app.worker", "beat", "--loglevel=info"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://meetmate:${POSTGRES_PASSWORD:-meetmate}@postgres:5432/meetmate
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-devredispass}@redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - SMTP_HOST=${SMTP_HOST_DOCKER:-mailhog}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+    depends_on:
+      backend-api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: meetmate_postgres

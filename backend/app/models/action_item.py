@@ -1,6 +1,6 @@
 import uuid
-from datetime import date
-from sqlalchemy import Text, Date, ForeignKey, Enum as SAEnum
+from datetime import date, datetime
+from sqlalchemy import Text, Date, DateTime, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import enum
@@ -42,6 +42,9 @@ class ActionItem(Base):
         SAEnum(ActionItemSource, name="actionitemsource"),
         default=ActionItemSource.manual,
         nullable=False,
+    )
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     meeting: Mapped["Meeting"] = relationship("Meeting", back_populates="action_items")

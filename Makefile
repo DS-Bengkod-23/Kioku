@@ -37,6 +37,10 @@ logs-api:
 logs-worker:
 	docker compose logs -f celery-worker
 
+# Melihat logs khusus celery beat (scheduler reminder harian)
+logs-beat:
+	docker compose logs -f celery-beat
+
 # Menjalankan migrasi database di dalam container backend
 migrate:
 	docker compose exec backend-api alembic upgrade head

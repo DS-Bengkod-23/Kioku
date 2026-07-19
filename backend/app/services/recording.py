@@ -17,6 +17,13 @@ from app.models.summary import Summary
 from app.models.action_item import ActionItem, ActionItemSource
 from app.services import storage
 
+_AUDIO_CONTENT_TYPE_BY_EXT = {
+    "mp3": "audio/mpeg",
+    "mp4": "audio/mp4",
+    "wav": "audio/wav",
+    "m4a": "audio/x-m4a",
+}
+
 # OpenAI /v1/audio/transcriptions hard-cap 25MB, berlaku endpoint-wide untuk
 # whisper-1/gpt-4o-transcribe/gpt-4o-mini-transcribe — bukan per-model, tidak
 # bisa diubah lewat konfigurasi. Dicek di sini supaya gagalnya kelihatan saat
@@ -199,6 +206,37 @@ def get_recording_status(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID)
     if not recording:
         raise HTTPException(status_code=404, detail="Recording not found")
     return recording
+
+
+def _iter_and_close(body):
+    try:
+        for chunk in body.iter_chunks(chunk_size=64 * 1024):
+            yield chunk
+    finally:
+        body.close()
+
+
+def get_recording_audio(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
+    """Auth sama seperti get_recording_status: organizer ATAU participant boleh
+    akses. Return (byte_iterator, content_type, content_length) untuk di-stream
+    balik lewat StreamingResponse di router -- proxy authenticated, bukan
+    presigned URL, supaya MinIO tidak perlu diekspos ke browser."""
+    meeting = _get_meeting_or_404(db, meeting_id)
+    _require_participant(meeting, user_id)
+
+    recording = db.query(Recording).filter(Recording.meeting_id == meeting_id).first()
+    if not recording:
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    ext = recording.file_url.rsplit(".", 1)[-1].lower() if "." in recording.file_url else ""
+    content_type = _AUDIO_CONTENT_TYPE_BY_EXT.get(ext, "application/octet-stream")
+
+    try:
+        body = storage.get_file_stream(recording.file_url)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Recording file not found in storage")
+
+    return _iter_and_close(body), content_type, recording.size
 
 
 def delete_recording(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):

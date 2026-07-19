@@ -42,6 +42,18 @@ def upload_file(file_bytes: bytes, filename: str, meeting_id: str) -> str:
     return object_key
 
 
+def get_file_stream(object_key: str):
+    """Buka object MinIO sebagai stream (botocore StreamingBody), dipakai untuk
+    proxy audio playback tanpa expose MinIO langsung ke browser."""
+    client = get_minio_client()
+    try:
+        response = client.get_object(Bucket=settings.MINIO_BUCKET, Key=object_key)
+    except ClientError as e:
+        logger.error("Gagal membaca objek storage %s", object_key, exc_info=True)
+        raise FileNotFoundError(object_key) from e
+    return response["Body"]
+
+
 def delete_file(file_url: str):
     client = get_minio_client()
     try:
