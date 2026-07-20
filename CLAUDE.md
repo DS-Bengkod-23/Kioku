@@ -64,6 +64,12 @@ Run `make up && make migrate` after this to start fresh.
 make pre-commit   # runs pre-commit hooks against all files manually
 ```
 
+### Backend Tests
+```bash
+make test   # runs pytest inside the backend-api container
+```
+Tests run against a separate `<db>_test` Postgres database (auto-created and migrated to head on first run, same container as dev) — never the dev database. After adding `pytest`/`httpx` or other new backend deps, rebuild first: `docker compose build backend-api`.
+
 ### Frontend Commands (if needed locally)
 Adding shadcn components is still done from inside the frontend folder (requires local Node.js):
 ```bash
