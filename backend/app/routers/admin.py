@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -44,6 +44,16 @@ def update_user_role(
     superadmin: User = Depends(get_current_superadmin_user),
 ):
     return admin_service.update_user_role(db, superadmin, user_id, body.role)
+
+
+@router.post("/users/{user_id}/reset-password", status_code=status.HTTP_202_ACCEPTED)
+def reset_user_password(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(get_current_superadmin_user),
+):
+    admin_service.trigger_password_reset(db, superadmin, user_id)
+    return {"detail": "Email reset password telah dikirim"}
 
 
 @router.get("/meetings", response_model=list[MeetingAdminResponse])

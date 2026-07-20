@@ -7,6 +7,8 @@ from app.models.meeting import Meeting
 from app.models.participant import MeetingParticipant
 from app.models.action_item import ActionItemStatus
 from app.models.audit_log import AuditLog, AuditAction
+from app.services.auth import create_password_reset_token
+from app.services.email import send_password_reset_email
 from app.schemas.admin import (
     UserAdminResponse,
     MeetingAdminResponse,
@@ -104,6 +106,31 @@ def suspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:
     db.commit()
     db.refresh(target)
     return target
+
+
+def trigger_password_reset(db: Session, actor: User, target_user_id: uuid.UUID) -> None:
+    target = _get_user_or_404(db, target_user_id)
+
+    if target.password_hash is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ini tidak punya password lokal (akun Google SSO) — tidak ada yang bisa direset",
+        )
+
+    # Superadmin never sees or sets the new password — the token only lets
+    # the account owner themselves choose it via the confirm endpoint.
+    token = create_password_reset_token(target.id)
+    send_password_reset_email(target.email, target.name, token)
+
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.reset_password,
+            target_type="user",
+            target_id=target.id,
+        )
+    )
+    db.commit()
 
 
 def unsuspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:

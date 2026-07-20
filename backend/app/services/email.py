@@ -140,6 +140,32 @@ def send_notulen_email(
     # semua peserta selesai dikirimi, sekaligus dengan attendance_locked/status.
 
 
+def send_password_reset_email(recipient_email: str, recipient_name: str, reset_token: str) -> None:
+    # Sengaja tidak menelan exception, sama seperti send_action_item_reminder_email:
+    # caller (trigger_password_reset) harus tahu kalau pengiriman gagal, bukan diam-diam
+    # melaporkan sukses padahal user gak pernah dapat link reset-nya.
+    reset_url = f"{settings.APP_BASE_URL}/reset-password/{reset_token}"
+
+    body_html = f"""<html><body>
+<p>Yth. {recipient_name},</p>
+<p>Admin telah memicu reset password untuk akun Anda. Klik tautan berikut untuk membuat password baru sendiri
+— tautan ini cuma berlaku 30 menit dan cuma bisa dipakai sekali:</p>
+<p><a href="{reset_url}" style="font-size:16px;font-weight:bold;">Reset Password Saya &rarr;</a></p>
+<p>Kalau Anda tidak meminta ini, abaikan email ini — password Anda tidak akan berubah kecuali Anda membuka
+tautan di atas.</p>
+<p>Terima kasih.</p>
+</body></html>"""
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = "Reset Password Akun Kioku Anda"
+    msg["From"] = settings.SMTP_USER or "noreply@kioku.local"
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(body_html, "html"))
+
+    with _smtp_connection() as conn:
+        conn.sendmail(msg["From"], [recipient_email], msg.as_string())
+
+
 def send_action_item_reminder_email(
     recipient_email: str,
     recipient_name: str,

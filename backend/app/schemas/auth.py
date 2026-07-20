@@ -47,6 +47,11 @@ class UserProfileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PasswordResetConfirmRequest(BaseModel):
+    token: str
+    new_password: str
+
+
 class UserProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None

@@ -13,6 +13,7 @@ from app.schemas.auth import (
     UserProfileResponse,
     UserProfileUpdateRequest,
     GoogleAuthRequest,
+    PasswordResetConfirmRequest,
 )
 from app.services.auth import (
     hash_password,
@@ -21,6 +22,7 @@ from app.services.auth import (
     get_current_user,
     update_profile,
     authenticate_google,
+    decode_password_reset_token,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,6 +74,20 @@ def google_login(request: Request, body: GoogleAuthRequest, db: Session = Depend
         name=user.name,
         email=user.email,
     )
+
+
+@router.post("/reset-password/confirm")
+def confirm_password_reset(body: PasswordResetConfirmRequest, db: Session = Depends(get_db)):
+    user_id = decode_password_reset_token(body.token)
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token reset tidak valid atau sudah expired",
+        )
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"detail": "Password berhasil direset"}
 
 
 @router.get("/me", response_model=UserProfileResponse)

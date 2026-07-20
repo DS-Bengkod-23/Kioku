@@ -113,6 +113,28 @@ def decode_calendar_state_token(token: str) -> uuid.UUID:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="State tidak valid atau sudah expired") from e
 
 
+def create_password_reset_token(user_id: uuid.UUID) -> str:
+    payload = {
+        "sub": str(user_id),
+        "purpose": "password_reset",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm="HS256")
+
+
+def decode_password_reset_token(token: str) -> uuid.UUID:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
+        if payload.get("purpose") != "password_reset":
+            raise ValueError("wrong token purpose")
+        return uuid.UUID(payload["sub"])
+    except (JWTError, ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token reset tidak valid atau sudah expired",
+        ) from e
+
+
 def authenticate_google(db: Session, id_token_str: str) -> User:
     try:
         payload = google_id_token.verify_oauth2_token(
