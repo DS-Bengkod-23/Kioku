@@ -18,6 +18,10 @@ class UserAdminResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole
+
+
 class ParticipantAdminResponse(BaseModel):
     name: str
     email: str

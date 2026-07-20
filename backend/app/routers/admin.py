@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
-from app.services.auth import get_current_admin_user
+from app.services.auth import get_current_admin_user, get_current_superadmin_user
 from app.services import admin as admin_service
-from app.schemas.admin import UserAdminResponse, MeetingAdminResponse
+from app.schemas.admin import UserAdminResponse, MeetingAdminResponse, UserRoleUpdateRequest
 
 router = APIRouter(tags=["admin"])
 
@@ -34,6 +34,16 @@ def unsuspend_user(
     admin: User = Depends(get_current_admin_user),
 ):
     return admin_service.unsuspend_user(db, admin, user_id)
+
+
+@router.patch("/users/{user_id}/role", response_model=UserAdminResponse)
+def update_user_role(
+    user_id: uuid.UUID,
+    body: UserRoleUpdateRequest,
+    db: Session = Depends(get_db),
+    superadmin: User = Depends(get_current_superadmin_user),
+):
+    return admin_service.update_user_role(db, superadmin, user_id, body.role)
 
 
 @router.get("/meetings", response_model=list[MeetingAdminResponse])

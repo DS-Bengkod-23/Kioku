@@ -45,6 +45,40 @@ def _active_superadmin_count(db: Session) -> int:
     )
 
 
+_ROLE_RANK = {UserRole.user: 0, UserRole.admin: 1, UserRole.superadmin: 2}
+
+
+def update_user_role(db: Session, actor: User, target_user_id: uuid.UUID, new_role: UserRole) -> User:
+    target = _get_user_or_404(db, target_user_id)
+    old_role = target.role
+
+    if old_role == new_role:
+        return target  # no-op
+
+    if old_role == UserRole.superadmin and _active_superadmin_count(db) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tidak boleh menyisakan sistem tanpa superadmin aktif",
+        )
+
+    target.role = new_role
+    action = (
+        AuditAction.promote_user if _ROLE_RANK[new_role] > _ROLE_RANK[old_role] else AuditAction.demote_user
+    )
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=action,
+            target_type="user",
+            target_id=target.id,
+            reason=f"role changed from {old_role.value} to {new_role.value}",
+        )
+    )
+    db.commit()
+    db.refresh(target)
+    return target
+
+
 def suspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:
     target = _get_user_or_404(db, target_user_id)
     _assert_actor_can_target(actor, target)
