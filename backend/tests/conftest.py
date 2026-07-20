@@ -1,5 +1,6 @@
 import os
 import sys
+import uuid
 from pathlib import Path
 
 # Mirror alembic/env.py's defensive sys.path handling so `import app...`
@@ -27,6 +28,8 @@ from app.config import settings  # noqa: E402
 from app.database import Base, _get_engine_url, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app import models  # noqa: E402,F401 — registers every model on Base.metadata
+from app.models.user import User, UserRole  # noqa: E402
+from app.services.auth import create_access_token, hash_password  # noqa: E402
 
 _ALEMBIC_INI = str(_BACKEND_ROOT / "alembic.ini")
 
@@ -88,3 +91,29 @@ def client():
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def make_user(db_session):
+    def _make(role: UserRole = UserRole.user, email: str | None = None, password: str = "password123") -> User:
+        user = User(
+            email=email or f"{uuid.uuid4()}@example.com",
+            name="Test User",
+            password_hash=hash_password(password),
+            role=role,
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    return _make
+
+
+@pytest.fixture
+def auth_headers():
+    def _headers(user: User) -> dict[str, str]:
+        token = create_access_token({"sub": str(user.id)})
+        return {"Authorization": f"Bearer {token}"}
+
+    return _headers

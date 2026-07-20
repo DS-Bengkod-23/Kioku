@@ -10,7 +10,7 @@ from google.auth.transport import requests as google_requests
 from google.auth import exceptions as google_exceptions
 from app.config import settings
 from app.database import get_db
-from app.models.user import User, AuthProvider
+from app.models.user import User, AuthProvider, UserRole
 from app.schemas.auth import UserProfileUpdateRequest
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -59,6 +59,18 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     return _decode_user_token(credentials.credentials, db)
+
+
+def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in (UserRole.admin, UserRole.superadmin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses admin diperlukan")
+    return current_user
+
+
+def get_current_superadmin_user(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.superadmin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses superadmin diperlukan")
+    return current_user
 
 
 def get_current_user_from_cookie(request: Request, db: Session) -> User:

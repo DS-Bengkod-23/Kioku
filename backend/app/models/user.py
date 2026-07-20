@@ -12,6 +12,12 @@ class AuthProvider(str, enum.Enum):
     google = "google"
 
 
+class UserRole(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+    superadmin = "superadmin"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,6 +33,11 @@ class User(Base):
         nullable=False,
     )
     google_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    role: Mapped[UserRole] = mapped_column(
+        SAEnum(UserRole, name="userrole"),
+        default=UserRole.user,
+        nullable=False,
+    )
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
