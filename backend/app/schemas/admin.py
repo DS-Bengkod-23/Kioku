@@ -43,3 +43,18 @@ class MeetingAdminResponse(BaseModel):
     organizer_email: str
     participants: list[ParticipantAdminResponse]
     action_items: ActionItemsSummary
+
+
+class MeetingContentAccessRequest(BaseModel):
+    reason: str
+
+
+class MeetingContentAccessResponse(BaseModel):
+    meeting_id: UUID
+    # Deliberately no audio/recording field anywhere on this model — the
+    # raw recording is permanently off-limits to admin access, regardless
+    # of role. Never add one here.
+    transcript_segments: list | None = None
+    summary_tldr: str | None = None
+    summary_decisions: list | None = None
+    summary_topics: list | None = None

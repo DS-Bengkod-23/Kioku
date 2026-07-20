@@ -5,7 +5,13 @@ from app.database import get_db
 from app.models.user import User
 from app.services.auth import get_current_admin_user, get_current_superadmin_user
 from app.services import admin as admin_service
-from app.schemas.admin import UserAdminResponse, MeetingAdminResponse, UserRoleUpdateRequest
+from app.schemas.admin import (
+    UserAdminResponse,
+    MeetingAdminResponse,
+    UserRoleUpdateRequest,
+    MeetingContentAccessRequest,
+    MeetingContentAccessResponse,
+)
 
 router = APIRouter(tags=["admin"])
 
@@ -54,6 +60,16 @@ def reset_user_password(
 ):
     admin_service.trigger_password_reset(db, superadmin, user_id)
     return {"detail": "Email reset password telah dikirim"}
+
+
+@router.post("/meetings/{meeting_id}/access-requests", response_model=MeetingContentAccessResponse)
+def request_meeting_access(
+    meeting_id: uuid.UUID,
+    body: MeetingContentAccessRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    return admin_service.request_meeting_content_access(db, admin, meeting_id, body.reason)
 
 
 @router.get("/meetings", response_model=list[MeetingAdminResponse])

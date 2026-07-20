@@ -14,6 +14,7 @@ from app.schemas.admin import (
     MeetingAdminResponse,
     ParticipantAdminResponse,
     ActionItemsSummary,
+    MeetingContentAccessResponse,
 )
 
 
@@ -106,6 +107,40 @@ def suspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:
     db.commit()
     db.refresh(target)
     return target
+
+
+def request_meeting_content_access(
+    db: Session, actor: User, meeting_id: uuid.UUID, reason: str
+) -> MeetingContentAccessResponse:
+    meeting = (
+        db.query(Meeting)
+        .options(joinedload(Meeting.transcript), joinedload(Meeting.summary))
+        .filter(Meeting.id == meeting_id)
+        .first()
+    )
+    if meeting is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting tidak ditemukan")
+
+    # No persisted "grant" — every call is its own justified, logged access.
+    # No notification to organizer/participants, by design (never add one).
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.request_meeting_access,
+            target_type="meeting",
+            target_id=meeting.id,
+            reason=reason,
+        )
+    )
+    db.commit()
+
+    return MeetingContentAccessResponse(
+        meeting_id=meeting.id,
+        transcript_segments=meeting.transcript.segments if meeting.transcript else None,
+        summary_tldr=meeting.summary.tldr if meeting.summary else None,
+        summary_decisions=meeting.summary.decisions if meeting.summary else None,
+        summary_topics=meeting.summary.topics if meeting.summary else None,
+    )
 
 
 def trigger_password_reset(db: Session, actor: User, target_user_id: uuid.UUID) -> None:
