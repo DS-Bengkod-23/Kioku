@@ -1,8 +1,12 @@
+import uuid
+from datetime import datetime, timezone
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.meeting import Meeting
 from app.models.participant import MeetingParticipant
 from app.models.action_item import ActionItemStatus
+from app.models.audit_log import AuditLog, AuditAction
 from app.schemas.admin import (
     UserAdminResponse,
     MeetingAdminResponse,
@@ -14,6 +18,79 @@ from app.schemas.admin import (
 def list_users(db: Session) -> list[UserAdminResponse]:
     users = db.query(User).order_by(User.created_at).all()
     return [UserAdminResponse.model_validate(u) for u in users]
+
+
+def _get_user_or_404(db: Session, user_id: uuid.UUID) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User tidak ditemukan")
+    return user
+
+
+def _assert_actor_can_target(actor: User, target: User) -> None:
+    # Admin can only act on regular users — never on another admin or a
+    # superadmin, in either direction (suspend or unsuspend).
+    if actor.role == UserRole.admin and target.role in (UserRole.admin, UserRole.superadmin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin tidak dapat menargetkan akun admin/superadmin lain",
+        )
+
+
+def _active_superadmin_count(db: Session) -> int:
+    return (
+        db.query(User)
+        .filter(User.role == UserRole.superadmin, User.suspended_at.is_(None))
+        .count()
+    )
+
+
+def suspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:
+    target = _get_user_or_404(db, target_user_id)
+    _assert_actor_can_target(actor, target)
+
+    if target.suspended_at is not None:
+        return target  # already suspended — idempotent no-op
+
+    if target.role == UserRole.superadmin and _active_superadmin_count(db) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tidak boleh menyisakan sistem tanpa superadmin aktif",
+        )
+
+    target.suspended_at = datetime.now(timezone.utc)
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.suspend_user,
+            target_type="user",
+            target_id=target.id,
+        )
+    )
+    db.commit()
+    db.refresh(target)
+    return target
+
+
+def unsuspend_user(db: Session, actor: User, target_user_id: uuid.UUID) -> User:
+    target = _get_user_or_404(db, target_user_id)
+    _assert_actor_can_target(actor, target)
+
+    if target.suspended_at is None:
+        return target  # already active — idempotent no-op
+
+    target.suspended_at = None
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.unsuspend_user,
+            target_type="user",
+            target_id=target.id,
+        )
+    )
+    db.commit()
+    db.refresh(target)
+    return target
 
 
 def list_meetings_metadata(db: Session) -> list[MeetingAdminResponse]:

@@ -12,6 +12,7 @@ class UserAdminResponse(BaseModel):
     name: str
     email: str
     role: UserRole
+    suspended_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

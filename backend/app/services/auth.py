@@ -51,6 +51,15 @@ def _decode_user_token(token: str, db: Session) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exc
+    if user.suspended_at is not None:
+        # Checked on every request (not just at login) so suspension takes
+        # effect on the suspended user's very next call, regardless of how
+        # long their existing JWT still has left.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Akun ini disuspend",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 

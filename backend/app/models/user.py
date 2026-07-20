@@ -38,6 +38,10 @@ class User(Base):
         default=UserRole.user,
         nullable=False,
     )
+    # Presence means suspended; also records *when* for free, no separate
+    # boolean needed. Checked on every request in _decode_user_token, not
+    # just at login.
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
