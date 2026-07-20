@@ -5,6 +5,7 @@ from app.models.user import UserRole
 from app.models.meeting import MeetingStatus
 from app.models.participant import ParticipantRole
 from app.models.attendance import AttendanceStatus
+from app.models.audit_log import AuditAction
 
 
 class UserAdminResponse(BaseModel):
@@ -47,6 +48,18 @@ class MeetingAdminResponse(BaseModel):
 
 class MeetingContentAccessRequest(BaseModel):
     reason: str
+
+
+class AuditLogResponse(BaseModel):
+    id: UUID
+    actor_id: UUID | None
+    action: AuditAction
+    target_type: str
+    target_id: UUID
+    reason: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class MeetingContentAccessResponse(BaseModel):

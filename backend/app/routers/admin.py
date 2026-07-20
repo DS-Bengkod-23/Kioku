@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
@@ -11,6 +11,7 @@ from app.schemas.admin import (
     UserRoleUpdateRequest,
     MeetingContentAccessRequest,
     MeetingContentAccessResponse,
+    AuditLogResponse,
 )
 
 router = APIRouter(tags=["admin"])
@@ -88,6 +89,16 @@ def delete_recording(
     admin: User = Depends(get_current_admin_user),
 ):
     admin_service.delete_recording(db, admin, recording_id)
+
+
+@router.get("/audit-logs", response_model=list[AuditLogResponse])
+def list_audit_logs(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    return admin_service.list_audit_logs(db, admin, limit=limit, offset=offset)
 
 
 @router.get("/meetings", response_model=list[MeetingAdminResponse])

@@ -16,6 +16,7 @@ from app.schemas.admin import (
     ParticipantAdminResponse,
     ActionItemsSummary,
     MeetingContentAccessResponse,
+    AuditLogResponse,
 )
 
 
@@ -142,6 +143,15 @@ def request_meeting_content_access(
         summary_decisions=meeting.summary.decisions if meeting.summary else None,
         summary_topics=meeting.summary.topics if meeting.summary else None,
     )
+
+
+def list_audit_logs(db: Session, actor: User, limit: int = 50, offset: int = 0) -> list[AuditLogResponse]:
+    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if actor.role == UserRole.admin:
+        # Admin sees only their own actions; superadmin sees everything.
+        query = query.filter(AuditLog.actor_id == actor.id)
+    logs = query.offset(offset).limit(limit).all()
+    return [AuditLogResponse.model_validate(log) for log in logs]
 
 
 def delete_meeting(db: Session, actor: User, meeting_id: uuid.UUID) -> None:
