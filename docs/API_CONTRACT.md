@@ -344,20 +344,28 @@ Status values: `pending`, `hadir`, `tidak_hadir`
 ## Action Items
 
 ### PATCH /action-items/:id
-Update status action item. Organizer bisa update semua, peserta hanya bisa update miliknya.
+Update status dan/atau assignee action item. Organizer bisa update semua (termasuk assignee), peserta hanya bisa update status miliknya.
 
-**Request:**
+**Request (semua field optional):**
 ```json
 {
-  "status": "done"
+  "status": "done",
+  "assignee_id": "uuid"
 }
 ```
+`assignee_id` harus salah satu participant pada meeting terkait. Kirim `null` untuk melepas assignee (jadi belum di-assign).
+
 **Response 200:**
 ```json
 {
   "id": "uuid",
   "task": "Bikin endpoint upload recording",
-  "status": "done"
+  "status": "done",
+  "assignee": {
+    "id": "uuid",
+    "name": "Audi",
+    "email": "audi@email.com"
+  }
 }
 ```
 

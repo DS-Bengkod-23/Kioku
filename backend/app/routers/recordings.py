@@ -1,5 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -32,6 +33,20 @@ def get_recording_status(
     current_user: User = Depends(get_current_user),
 ):
     return recording_service.get_recording_status(db, meeting_id, current_user.id)
+
+
+@router.get("/{meeting_id}/recording/audio")
+def get_recording_audio(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    chunks, content_type, size = recording_service.get_recording_audio(db, meeting_id, current_user.id)
+    return StreamingResponse(
+        chunks,
+        media_type=content_type,
+        headers={"Content-Length": str(size)},
+    )
 
 
 @router.delete("/{meeting_id}/recording", status_code=status.HTTP_204_NO_CONTENT)

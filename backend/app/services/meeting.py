@@ -12,9 +12,11 @@ from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.user import User
 from app.models.summary import Summary
 from app.models.action_item import ActionItem
+from app.models.calendar_sync_event import CalendarSyncEvent
 from app.schemas.meeting import MeetingCreate, MeetingUpdate, MeetingListResponse
 from app.services.invitation import create_invitations
 from app.services.email import send_invitation_email
+from app.tasks.calendar_sync import sync_meeting_calendar_task, delete_meeting_calendar_events_task
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,9 @@ def create_meeting(db: Session, organizer_id: uuid.UUID, data: MeetingCreate) ->
         # (lihat catatan di invitation.py) — commit di sini supaya invitation &
         # email log yang baru dibuat benar-benar persist.
         db.commit()
+
+    if settings.GOOGLE_CALENDAR_SYNC_ENABLED:
+        sync_meeting_calendar_task.delay(str(meeting.id))
 
     return meeting
 
@@ -179,6 +184,7 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
     for key, value in update_data.items():
         setattr(meeting, key, value)
 
+    removed_calendar_events: list[dict] = []
     if data.participant_emails is not None:
         organizer_user = db.query(User).filter(User.id == user_id).first()
         organizer_email = organizer_user.email if organizer_user else None
@@ -189,10 +195,26 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
             if p.role == ParticipantRole.peserta
         }
         new_emails = {e for e in data.participant_emails if e != organizer_email}
+        removed_participants = [p for email, p in existing_peserta.items() if email not in new_emails]
 
-        for email, participant in existing_peserta.items():
-            if email not in new_emails:
-                db.delete(participant)
+        # Tangkap dulu google_event_id peserta yang mau dikeluarkan SEBELUM baris
+        # MeetingParticipant-nya dihapus (CalendarSyncEvent ikut cascade delete
+        # begitu itu terjadi) -- supaya event yang sudah nempel di Google Calendar
+        # mereka bisa ikut dibersihkan, bukan dibiarkan nyangkut selamanya.
+        if settings.GOOGLE_CALENDAR_SYNC_ENABLED and removed_participants:
+            rows = (
+                db.query(CalendarSyncEvent, MeetingParticipant.user_id)
+                .join(MeetingParticipant, CalendarSyncEvent.meeting_participant_id == MeetingParticipant.id)
+                .filter(MeetingParticipant.id.in_([p.id for p in removed_participants]))
+                .all()
+            )
+            removed_calendar_events = [
+                {"user_id": str(participant_user_id), "google_event_id": sync_event.google_event_id}
+                for sync_event, participant_user_id in rows
+            ]
+
+        for participant in removed_participants:
+            db.delete(participant)
 
         to_add = [e for e in new_emails if e not in existing_peserta]
         new_participants = []
@@ -235,6 +257,13 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
 
     db.commit()
     db.refresh(meeting)
+
+    if removed_calendar_events:
+        delete_meeting_calendar_events_task.delay(removed_calendar_events)
+
+    if settings.GOOGLE_CALENDAR_SYNC_ENABLED:
+        sync_meeting_calendar_task.delay(str(meeting.id))
+
     return meeting
 
 
@@ -274,9 +303,28 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
         
     if meeting.organizer_id != user_id:
         raise HTTPException(status_code=403, detail="Only organizer can delete meeting")
-        
+
+    # Tangkap dulu event Calendar yang sudah ke-sync SEBELUM meeting (dan
+    # MeetingParticipant-nya, lewat cascade) dihapus — setelah baris ini hilang,
+    # google_event_id tidak bisa diambil lagi dari DB untuk proses cleanup di Google.
+    events_to_delete = []
+    if settings.GOOGLE_CALENDAR_SYNC_ENABLED:
+        rows = (
+            db.query(CalendarSyncEvent, MeetingParticipant.user_id)
+            .join(MeetingParticipant, CalendarSyncEvent.meeting_participant_id == MeetingParticipant.id)
+            .filter(MeetingParticipant.meeting_id == meeting_id)
+            .all()
+        )
+        events_to_delete = [
+            {"user_id": str(participant_user_id), "google_event_id": sync_event.google_event_id}
+            for sync_event, participant_user_id in rows
+        ]
+
     db.delete(meeting)
     db.commit()
+
+    if events_to_delete:
+        delete_meeting_calendar_events_task.delay(events_to_delete)
 
 
 def search_meetings(

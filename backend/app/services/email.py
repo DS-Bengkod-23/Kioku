@@ -1,7 +1,7 @@
 import smtplib
 import uuid
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
@@ -138,3 +138,38 @@ def send_notulen_email(
     db.add(log)
     # Sengaja tidak commit di sini — caller (process_recording_task) commit setelah
     # semua peserta selesai dikirimi, sekaligus dengan attendance_locked/status.
+
+
+def send_action_item_reminder_email(
+    recipient_email: str,
+    recipient_name: str,
+    task: str,
+    due_date: date,
+    meeting_title: str,
+    action_url: str,
+) -> None:
+    # Sengaja tidak menelan exception (beda dari send_invitation_email/send_notulen_email
+    # di atas) -- caller (tasks/action_item_reminders.py) memakai kegagalan ini untuk
+    # memutuskan TIDAK mengisi reminder_sent_at, supaya item tetap dicoba lagi di run
+    # harian berikutnya alih-alih diam-diam ditandai terkirim padahal gagal.
+    due_str = due_date.strftime("%d %B %Y")
+
+    body_html = f"""<html><body>
+<p>Yth. {recipient_name},</p>
+<p>Ini pengingat bahwa tugas berikut jatuh tempo <b>besok, {due_str}</b>:</p>
+<ul>
+  <li><b>Tugas:</b> {task}</li>
+  <li><b>Rapat:</b> {meeting_title}</li>
+</ul>
+<p><a href="{action_url}" style="font-size:16px;font-weight:bold;">Buka &rarr;</a></p>
+<p>Terima kasih.</p>
+</body></html>"""
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = f"Pengingat: Tugas Anda jatuh tempo besok - {task}"
+    msg["From"] = settings.SMTP_USER or "noreply@kioku.local"
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(body_html, "html"))
+
+    with _smtp_connection() as conn:
+        conn.sendmail(msg["From"], [recipient_email], msg.as_string())

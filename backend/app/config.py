@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
+    # Google SSO
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_SSO_ENABLED: bool = True
+
+    # Google Calendar sync
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_CALENDAR_REDIRECT_URI: str = ""
+    GOOGLE_TOKEN_ENCRYPTION_KEY: str = ""
+    GOOGLE_CALENDAR_SYNC_ENABLED: bool = True
+
     # Provider LLM aktif untuk transcribe + summary/action item extraction.
     # Pilihan: 'openai' atau 'gemini'. Ganti nilai ini di .env lalu rebuild+restart
     # celery-worker untuk pindah provider tanpa ubah kode.

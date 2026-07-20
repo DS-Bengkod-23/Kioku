@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import ReminderBell from "@/components/ReminderBell";
 
 export default function MainDashboardLayout({
     children,
@@ -104,8 +105,9 @@ export default function MainDashboardLayout({
                         </Link>
                     </nav>
 
-                    {/* Avatar & Dropdown */}
-                    <div className="flex items-center justify-end relative" ref={dropdownRef}>
+                    {/* Reminder Bell & Avatar */}
+                    <div className="flex items-center justify-end gap-3 relative" ref={dropdownRef}>
+                        <ReminderBell />
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-full transition-all cursor-pointer"

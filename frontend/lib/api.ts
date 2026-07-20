@@ -66,6 +66,19 @@ export const updateProfile = async (data: {
   return response.data;
 };
 
+// Login/register lewat Google SSO — bentuk response HARUS sama dengan loginUser()
+// di atas (access_token + name), plus email (loginUser tidak butuh ini karena FE
+// sudah punya email dari input form; alur Google tidak punya sumber lain buat email).
+// Lihat plan/handoff-google-integration.md — endpoint ini belum ada di backend,
+// panggilan ini akan 404 sampai BE mengimplementasikan POST /auth/google.
+export const loginWithGoogle = async (idToken: string) => {
+  const response = await api.post("/auth/google", { id_token: idToken });
+  const { access_token } = response.data;
+  localStorage.setItem("access_token", access_token);
+  document.cookie = `access_token=${access_token}; path=/; max-age=${7 * 24 * 60 * 60}`;
+  return response.data;
+};
+
 export const logoutUser = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("user_profile");
@@ -175,6 +188,19 @@ export const deleteRecording = async (meetingId: string) => {
   await api.delete(`/meetings/${meetingId}/recording`);
 };
 
+// Belum ada di backend — lihat plan/handoff-audio-playback-reminder.md.
+// file_url di RecordingResponse cuma object key MinIO mentah, bukan URL yang bisa
+// diakses langsung, jadi <audio src> gak bisa dipasangin ke situ. Endpoint ini
+// diasumsikan balikin bytes audio mentah (bukan JSON) di belakang auth Bearer yang
+// sama kayak endpoint lain — makanya diambil sebagai blob lalu dikonversi ke object
+// URL lokal, pola yang sama dengan downloadNotulenPdf() di atas.
+export const getRecordingAudioBlobUrl = async (meetingId: string): Promise<string> => {
+  const response = await api.get(`/meetings/${meetingId}/recording/audio`, {
+    responseType: "blob",
+  });
+  return URL.createObjectURL(response.data);
+};
+
 // ==========================================
 // CHECK-IN (Public, No Auth)
 // ==========================================
@@ -269,6 +295,30 @@ export const createActionItem = async (
 ) => {
   const response = await api.post(`/meetings/${meetingId}/action-items`, data);
   return response.data;
+};
+
+// ==========================================
+// GOOGLE CALENDAR SYNC
+// Belum ada di backend — endpoint sesuai plan/handoff-google-integration.md,
+// akan 404 sampai BE mengimplementasikannya. FE dibangun duluan (parallel dev),
+// nanti di-debug bareng begitu BE siap.
+// ==========================================
+
+export const getCalendarStatus = async () => {
+  const response = await api.get("/me/calendar-status");
+  return response.data;
+};
+
+export const disconnectCalendar = async () => {
+  const response = await api.delete("/auth/google/calendar");
+  return response.data;
+};
+
+// Bukan panggilan axios — ini cuma redirect penuh ke backend (OAuth consent screen),
+// jadi cukup bangun URL-nya, konsumennya pakai window.location.href langsung.
+export const getGoogleCalendarConnectUrl = () => {
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  return `${base}/auth/google/calendar/connect`;
 };
 
 export default api;

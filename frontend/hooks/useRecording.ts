@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { uploadRecording, getRecordingStatus, deleteRecording } from "@/lib/api";
 
@@ -10,6 +10,7 @@ const DONE_STATUSES = ["completed", "failed"];
 const MAX_POLLING_MS = 60 * 60 * 1000; // 1 jam
 
 export function useRecordingStatus(meetingId: string, enabled = false) {
+  const queryClient = useQueryClient();
   const pollStartRef = useRef<number | null>(null);
   if (enabled) {
     if (pollStartRef.current === null) pollStartRef.current = Date.now();
@@ -34,6 +35,16 @@ export function useRecordingStatus(meetingId: string, enabled = false) {
   });
 
   const status = query.data?.processing_status;
+
+  // Query ["meeting", meetingId] (isi summary/transcript) gak otomatis ke-refetch
+  // pas polling ini berhenti — tanpa ini, begitu processing "completed", summary
+  // dan transkrip yang harusnya udah ada tetap gak muncul sampai user refresh
+  // manual, karena data meeting yang lama masih dianggap valid oleh react-query.
+  useEffect(() => {
+    if (status && DONE_STATUSES.includes(status)) {
+      queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
+    }
+  }, [status, meetingId, queryClient]);
   const isStalled =
     enabled &&
     !!pollStartRef.current &&

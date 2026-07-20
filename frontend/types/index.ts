@@ -133,6 +133,11 @@ export interface MyActionItem {
   meeting: MeetingSimple;
 }
 
+export interface CalendarStatusResponse {
+  connected: boolean;
+  connected_at: string | null;
+}
+
 export interface UserProfile {
   id: string;
   name: string;

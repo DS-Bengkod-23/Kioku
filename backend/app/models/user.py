@@ -1,9 +1,15 @@
 import uuid
+import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, DateTime, Text
+from sqlalchemy import String, DateTime, Text, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
+
+
+class AuthProvider(str, enum.Enum):
+    local = "local"
+    google = "google"
 
 
 class User(Base):
@@ -14,7 +20,13 @@ class User(Base):
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    auth_provider: Mapped[AuthProvider] = mapped_column(
+        SAEnum(AuthProvider, name="authprovider"),
+        default=AuthProvider.local,
+        nullable=False,
+    )
+    google_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)

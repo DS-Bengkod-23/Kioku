@@ -208,7 +208,25 @@ All ML functions must raise specific exceptions (not silent fail) and return Pyd
 
 ## Auth Model
 
-JWT + bcrypt. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use and do not require login. They intentionally never expire (participants can revisit the check-in portal — notulen, action items — at any time); the check-in *action* itself is separately gated by `attendance_locked` and by the meeting's `scheduled_at + duration_minutes` window.
+JWT + bcrypt, plus optional Google SSO. Single global user role; per-meeting roles are determined by the `MeetingParticipant` relation (organizer vs peserta). Magic-link check-in tokens are single-use and do not require login. They intentionally never expire (participants can revisit the check-in portal — notulen, action items — at any time); the check-in *action* itself is separately gated by `attendance_locked` and by the meeting's `scheduled_at + duration_minutes` window.
+
+**Google SSO:** `POST /auth/google` accepts `{ "id_token": "<Google ID token>" }` (verified via `google-auth` against `GOOGLE_CLIENT_ID`, not the authorization-code flow) and returns the same `TokenResponse` shape as `POST /auth/login`. `User.password_hash` is nullable — Google-only accounts have no password. `User.auth_provider` (`"local"` | `"google"`) records how the account was first created; `User.google_sub` is the unique Google account identifier used to look up returning Google users. **Account linking is automatic**: if a Google login's email matches an existing local (password) account, `google_sub` is attached to that same account rather than creating a duplicate — Google always verifies email ownership, so same email is treated as the same person. No domain restriction (`hd` claim) is currently enforced; any Google account can sign in. Toggle the whole feature off via `GOOGLE_SSO_ENABLED=false` in `.env` (endpoint returns 404 when disabled) without a redeploy.
+
+---
+
+## Google Calendar Sync
+
+Push-only sync (Kioku → Google, never the reverse): `create_meeting()`/`update_meeting()`/`delete_meeting()` in `services/meeting.py` enqueue Celery tasks from `tasks/calendar_sync.py` after commit — never called synchronously from the request handler. A failed sync never fails the meeting request; errors are logged and swallowed per-participant so one broken token doesn't block the others.
+
+**Fan-out is per-participant, not organizer-only:** every `MeetingParticipant` with a `user_id` who has individually connected their Google account (`GoogleCalendarCredential.connected = true`) gets the event pushed to *their own* calendar. This means one meeting can have N different Google events (one per connected participant), tracked via `CalendarSyncEvent` (unique on `meeting_participant_id`) — there is deliberately no single `google_event_id` column on `meetings`. Removing a participant from a meeting does **not** clean up their already-synced Google event (the `CalendarSyncEvent` row cascades away with the `MeetingParticipant`, but the real event is left orphaned on their calendar) — this gap is accepted, not yet handled.
+
+**OAuth flow is authorization-code (not the SSO's ID-token flow)**, since it needs a long-lived `refresh_token`: `GET /auth/google/calendar/connect` → redirects to Google consent (scope `calendar.events`, `access_type=offline`, `prompt=consent` to force a refresh token every time) → `GET /auth/google/calendar/callback` exchanges the code and stores tokens **encrypted at rest** (`services/crypto.py`, Fernet, key in `GOOGLE_TOKEN_ENCRYPTION_KEY`). Both of these two endpoints are reached via full-page browser redirect (`window.location.href`, not axios), so they authenticate off the `access_token` **cookie** (`get_current_user_from_cookie`), not the `Authorization` header — the OAuth `state` param is itself a short-lived signed JWT (`purpose: calendar_connect`, 10 min) carrying the user id, so the callback doesn't need the cookie again. `GET /me/calendar-status` and `DELETE /auth/google/calendar` are normal Bearer-authenticated JSON endpoints.
+
+Access tokens auto-refresh before each API call (`services/calendar.py::get_valid_access_token`); if the refresh fails with `invalid_grant` (user revoked access from their Google account settings, not via Kioku's Disconnect button), the credential is marked `connected = false` so `/me/calendar-status` reflects reality instead of silently going stale.
+
+Event content is intentionally minimal: title + time + location only — `description`/`agenda_text` are never sent to Google (privacy tradeoff, same reasoning as the transcript/cloud-LLM note above). `attendees` is never populated, so Google never sends its own invite emails on top of Kioku's existing ones.
+
+Toggle the whole feature off via `GOOGLE_CALENDAR_SYNC_ENABLED=false` in `.env` — hides `/auth/google/calendar/connect` and disables the Celery sync tasks (they no-op) without a redeploy.
 
 ---
 

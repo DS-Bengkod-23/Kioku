@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
     User,
@@ -10,9 +10,13 @@ import {
     Camera,
     ArrowLeft,
     Briefcase,
-    Calendar
+    Calendar,
+    CalendarCheck,
+    Link2Off
 } from "lucide-react";
 import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useCalendarStatus, useDisconnectCalendar } from "@/hooks/useCalendar";
+import { getGoogleCalendarConnectUrl } from "@/lib/api";
 
 interface ProfileFormState {
     name: string;
@@ -24,13 +28,48 @@ interface ProfileFormState {
 
 const EMPTY_FORM: ProfileFormState = { name: "", email: "", job_title: "", department: "", bio: "" };
 
+// useSearchParams() wajib dibungkus <Suspense> di Next.js App Router — kalau tidak,
+// build produksi gagal ("missing-suspense-with-csr-bailout") karena halaman ini
+// dicoba di-prerender statis. Diisolasi ke komponen kecil sendiri (tidak render
+// apa-apa) supaya cuma bagian ini yang butuh boundary, bukan seluruh ProfilePage.
+function CalendarRedirectHandler() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    // Redirect balik dari GET /auth/google/calendar/callback (lihat
+    // plan/handoff-google-integration.md) — bersihkan query param dari URL
+    // setelah ditampilkan supaya toast-nya tidak muncul lagi kalau di-refresh.
+    useEffect(() => {
+        const calendarParam = searchParams.get("calendar");
+        if (!calendarParam) return;
+        if (calendarParam === "connected") {
+            toast.success("Google Calendar berhasil terhubung.");
+        } else if (calendarParam === "error") {
+            toast.error("Gagal menghubungkan Google Calendar. Coba lagi.");
+        }
+        router.replace(pathname);
+    }, [searchParams, pathname, router]);
+
+    return null;
+}
+
 export default function ProfilePage() {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
     const { data: profile, isLoading, isError } = useProfile();
     const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
+    const { data: calendarStatus, isLoading: isCalendarLoading } = useCalendarStatus();
+    const { mutate: disconnectCalendar, isPending: isDisconnecting } = useDisconnectCalendar();
 
     const [formState, setFormState] = useState<ProfileFormState>(EMPTY_FORM);
+
+    const handleDisconnectCalendar = () => {
+        disconnectCalendar(undefined, {
+            onSuccess: () => toast.success("Google Calendar terputus."),
+            onError: () => toast.error("Gagal memutuskan Google Calendar. Coba lagi."),
+        });
+    };
 
     // Sync form dari data server begitu tersedia (atau saat berubah dari luar edit mode)
     useEffect(() => {
@@ -105,6 +144,9 @@ export default function ProfilePage() {
 
     return (
         <main className="bg-slate-50 min-h-screen text-slate-900 pb-16 pt-8">
+            <Suspense fallback={null}>
+                <CalendarRedirectHandler />
+            </Suspense>
             <div className="max-w-5xl mx-auto px-6 space-y-6">
 
                 {/* Tombol Kembali */}
@@ -262,6 +304,48 @@ export default function ProfilePage() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+
+                {/* Integrasi Akun */}
+                <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-8 animate-in fade-in-0 slide-in-from-bottom-3 duration-300 delay-150">
+                    <h3 className="text-xl font-bold text-slate-900 mb-1">Integrasi Akun</h3>
+                    <p className="text-xs text-slate-500 mb-6">Hubungkan Kioku dengan layanan lain.</p>
+
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                                <CalendarCheck size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-slate-900">Google Calendar</p>
+                                <p className="text-xs text-slate-500 truncate">
+                                    {isCalendarLoading
+                                        ? "Memeriksa status koneksi..."
+                                        : calendarStatus?.connected
+                                            ? "Rapat kamu otomatis tersinkron ke kalender ini."
+                                            : "Belum terhubung — rapat tidak otomatis masuk ke kalender."}
+                                </p>
+                            </div>
+                        </div>
+
+                        {calendarStatus?.connected ? (
+                            <button
+                                onClick={handleDisconnectCalendar}
+                                disabled={isDisconnecting}
+                                className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-rose-600 border border-rose-200 hover:bg-rose-50 transition disabled:opacity-50"
+                            >
+                                <Link2Off size={14} /> {isDisconnecting ? "Memutuskan..." : "Putuskan"}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => { window.location.href = getGoogleCalendarConnectUrl(); }}
+                                disabled={isCalendarLoading}
+                                className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
+                            >
+                                Hubungkan
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

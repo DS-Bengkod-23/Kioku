@@ -21,6 +21,7 @@ import {
 
 import UploadZone from "@/components/recording/UploadZone";
 import ProcessingStatus from "@/components/recording/ProcessingStatus";
+import AudioPlayer from "@/components/recording/AudioPlayer";
 import ActionItemList from "@/components/notulen/ActionItemList";
 import SummaryCard from "@/components/notulen/SummaryCard";
 import TranscriptView from "@/components/notulen/TranscriptView";
@@ -38,6 +39,17 @@ function formatDate(isoString: string) {
     hour: "2-digit", minute: "2-digit",
   });
 }
+
+// Samain wording sama app/check-in/[token]/page.tsx biar konsisten antara view organizer & peserta
+const IN_PROGRESS_STATUSES = ["queued", "transcribing", "diarizing", "extracting", "sending_email"];
+
+const PROCESSING_LABEL: Record<string, string> = {
+  queued: "Menunggu antrian...",
+  transcribing: "Sedang transkripsi audio...",
+  diarizing: "Mengidentifikasi pembicara...",
+  extracting: "Membuat ringkasan...",
+  sending_email: "Mengirim notulen...",
+};
 
 export default function MeetingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -59,13 +71,23 @@ export default function MeetingDetailPage() {
 
   // Auto-enable polling saat refresh jika ML masih memproses
   useEffect(() => {
-    if (["queued", "transcribing", "diarizing", "extracting", "sending_email"].includes(meeting?.processing_status)) {
+    if (IN_PROGRESS_STATUSES.includes(meeting?.processing_status)) {
       setPollingEnabled(true);
     }
   }, [meeting?.processing_status]);
   const { mutate: updateAttendance } = useUpdateAttendance(id);
   const { mutateAsync: selfCheckIn, isPending: isSelfCheckingIn } = useSelfCheckIn(id);
   const [selfCheckInBlocked, setSelfCheckInBlocked] = useState(false);
+
+  // attendance_locked dari BE cuma ke-fetch sekali pas halaman dibuka — kalau
+  // deadline (scheduled_at + duration_minutes) lewat SELAGI halaman ini masih
+  // kebuka, attendance_locked yang lama gak keupdate sampai di-refresh manual.
+  // Dicek ulang tiap menit sebagai cadangan di sisi FE, independen dari data BE.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
   const { mutate: updateActionItem, mutateAsync: updateActionItemAsync } = useUpdateActionItem(id);
   const { mutateAsync: createActionItem } = useCreateActionItem(id);
   const { mutateAsync: deleteMeeting, isPending: isDeletingMeeting } = useDeleteMeeting();
@@ -77,6 +99,13 @@ export default function MeetingDetailPage() {
   const currentUserEmail = readUserProfile().email ?? null;
   const isOrganizer = meeting?.organizer?.email === currentUserEmail;
   const myParticipant = meeting?.participants?.find((p: ParticipantResponse) => p.email === currentUserEmail);
+
+  // Cadangan FE buat deadline presensi — samain logikanya sama yang didokumentasikan
+  // BE di docs/API_CONTRACT.md (attendance_locked = kunci manual ATAU scheduled_at +
+  // duration_minutes lewat). `now` di-refresh tiap menit di atas.
+  const isPastAttendanceDeadline = meeting
+    ? now > new Date(meeting.scheduled_at).getTime() + meeting.duration_minutes * 60000
+    : false;
 
   const handleUpload = async (file: File) => {
     const form = new FormData();
@@ -452,6 +481,16 @@ export default function MeetingDetailPage() {
               </section>
             )}
 
+            {/* Rekaman Audio — kebalik dari Upload Rekaman, ini kelihatan buat semua
+                (organizer & peserta), bukan cuma organizer, karena dengerin ulang
+                rekaman itu kebutuhan siapa aja yang ikut rapat, bukan cuma yang upload. */}
+            {hasRecording && (
+              <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6">
+                <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-4">Rekaman Audio</h2>
+                <AudioPlayer meetingId={id} />
+              </section>
+            )}
+
             {/* Informasi Rapat */}
             <section className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 space-y-4">
               <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider border-b border-slate-200 pb-3">Informasi Rapat</h2>
@@ -492,14 +531,14 @@ export default function MeetingDetailPage() {
                         <p className="text-xs text-emerald-600 mt-0.5">Terima kasih sudah hadir di rapat ini.</p>
                       </div>
                     </div>
-                  ) : meeting.attendance_locked || selfCheckInBlocked ? (
-                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
-                      <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                  ) : meeting.attendance_locked || selfCheckInBlocked || isPastAttendanceDeadline ? (
+                    <div className="flex items-center gap-4 bg-rose-50 border border-rose-100 rounded-xl p-4">
+                      <div className="h-10 w-10 rounded-full bg-rose-500 text-white flex items-center justify-center shrink-0">
                         <Lock size={18} />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-600">Presensi Ditutup</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Waktu check-in sudah berakhir.</p>
+                        <p className="text-sm font-bold text-rose-700">Presensi Ditutup</p>
+                        <p className="text-xs text-rose-500 mt-0.5">Waktu check-in sudah berakhir.</p>
                       </div>
                     </div>
                   ) : (
@@ -508,7 +547,7 @@ export default function MeetingDetailPage() {
                       disabled={isSelfCheckingIn}
                       className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-3.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2"
                     >
-                      <CheckCircle size={15} /> {isSelfCheckingIn ? "Memproses..." : "Check In Sekarang"}
+                      <CheckCircle size={15} /> {isSelfCheckingIn ? "Memproses..." : "Presensi Sekarang"}
                     </button>
                   )}
                 </div>
@@ -576,9 +615,11 @@ export default function MeetingDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-[260px] text-slate-500 text-xs italic">
-                    {processingStatus === "transcribing" || processingStatus === "diarizing" || processingStatus === "extracting"
-                      ? "AI sedang menganalisis berkas suara..."
+                  <div className="flex items-center justify-center h-[260px] text-slate-500 text-xs italic text-center px-6">
+                    {isFailed
+                      ? "Notulen gagal dibuat — lihat detail error di kartu rekaman."
+                      : processingStatus && IN_PROGRESS_STATUSES.includes(processingStatus)
+                      ? PROCESSING_LABEL[processingStatus] ?? "AI sedang memproses..."
                       : "Silakan unggah rekaman audio rapat untuk memicu notulen AI."}
                   </div>
                 )}
