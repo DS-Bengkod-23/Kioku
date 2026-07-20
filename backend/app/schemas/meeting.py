@@ -75,6 +75,7 @@ class MeetingListItem(BaseModel):
     attendance_count: int
     has_recording: bool
     processing_status: Optional[str] = None
+    deleted_at: Optional[datetime] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -87,8 +88,9 @@ class MeetingListItem(BaseModel):
         participant_count = len(data.participants) if hasattr(data, 'participants') else 0
         attendance_count = sum(1 for p in (data.participants if hasattr(data, 'participants') else []) if p.attendance and p.attendance.status.value == "hadir")
 
-        has_recording = data.recording is not None if hasattr(data, 'recording') else False
-        processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
+        recording = data.recording if getattr(data, 'recording', None) and data.recording.deleted_at is None else None
+        has_recording = recording is not None
+        processing_status = getattr(recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):
             processing_status = processing_status.value
 
@@ -101,7 +103,8 @@ class MeetingListItem(BaseModel):
             "participant_count": participant_count,
             "attendance_count": attendance_count,
             "has_recording": has_recording,
-            "processing_status": processing_status
+            "processing_status": processing_status,
+            "deleted_at": getattr(data, 'deleted_at', None),
         }
 
 
@@ -110,6 +113,12 @@ class MeetingListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class MeetingDeletedNotice(BaseModel):
+    id: UUID
+    deleted: bool = True
+    message: str = "Meeting ini telah dihapus oleh admin."
 
 
 class OrganizerResponse(BaseModel):
@@ -146,11 +155,17 @@ class MeetingDetail(BaseModel):
     def extract_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return data
+        if not hasattr(data, 'organizer'):
+            # Not a Meeting ORM instance (e.g. a MeetingDeletedNotice already
+            # constructed by the router) — let the Union try the next member
+            # instead of crashing on a raw AttributeError.
+            raise ValueError("Expected a Meeting ORM instance")
 
         status = data.status.value if hasattr(data.status, 'value') else data.status
 
-        has_recording = data.recording is not None if hasattr(data, 'recording') else False
-        processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
+        recording = data.recording if getattr(data, 'recording', None) and data.recording.deleted_at is None else None
+        has_recording = recording is not None
+        processing_status = getattr(recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):
             processing_status = processing_status.value
 
@@ -199,7 +214,7 @@ class MeetingDetail(BaseModel):
             "attendance_locked": data.attendance_locked,
             "organizer": data.organizer,
             "participants": data.participants,
-            "recording": data.recording,
+            "recording": recording,
             "processing_status": processing_status,
             "transcript": transcript,
             "summary": summary,

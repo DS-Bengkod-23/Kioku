@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from app.models.user import User, UserRole
 from app.models.meeting import Meeting
+from app.models.recording import Recording
 from app.models.participant import MeetingParticipant
 from app.models.action_item import ActionItemStatus
 from app.models.audit_log import AuditLog, AuditAction
@@ -141,6 +142,46 @@ def request_meeting_content_access(
         summary_decisions=meeting.summary.decisions if meeting.summary else None,
         summary_topics=meeting.summary.topics if meeting.summary else None,
     )
+
+
+def delete_meeting(db: Session, actor: User, meeting_id: uuid.UUID) -> None:
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if meeting is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting tidak ditemukan")
+    if meeting.deleted_at is not None:
+        return  # idempotent no-op
+
+    meeting.deleted_at = datetime.now(timezone.utc)
+    meeting.deleted_by_admin_id = actor.id
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.delete_meeting,
+            target_type="meeting",
+            target_id=meeting.id,
+        )
+    )
+    db.commit()
+
+
+def delete_recording(db: Session, actor: User, recording_id: uuid.UUID) -> None:
+    recording = db.query(Recording).filter(Recording.id == recording_id).first()
+    if recording is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording tidak ditemukan")
+    if recording.deleted_at is not None:
+        return  # idempotent no-op
+
+    recording.deleted_at = datetime.now(timezone.utc)
+    recording.deleted_by_admin_id = actor.id
+    db.add(
+        AuditLog(
+            actor_id=actor.id,
+            action=AuditAction.delete_recording,
+            target_type="recording",
+            target_id=recording.id,
+        )
+    )
+    db.commit()
 
 
 def trigger_password_reset(db: Session, actor: User, target_user_id: uuid.UUID) -> None:

@@ -72,6 +72,24 @@ def request_meeting_access(
     return admin_service.request_meeting_content_access(db, admin, meeting_id, body.reason)
 
 
+@router.delete("/meetings/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_meeting(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    admin_service.delete_meeting(db, admin, meeting_id)
+
+
+@router.delete("/recordings/{recording_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recording(
+    recording_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin_user),
+):
+    admin_service.delete_recording(db, admin, recording_id)
+
+
 @router.get("/meetings", response_model=list[MeetingAdminResponse])
 def list_meetings(
     db: Session = Depends(get_db),

@@ -13,6 +13,7 @@ from app.schemas.meeting import (
     MeetingUpdate,
     MeetingListResponse,
     MeetingDetail,
+    MeetingDeletedNotice,
 )
 from app.schemas.action_item import ActionItemResponse, ActionItemCreateRequest
 from app.services import meeting as meeting_service
@@ -59,13 +60,15 @@ def search_meetings(
         date_from=date_from, date_to=date_to,
     )
 
-@router.get("/{meeting_id}", response_model=MeetingDetail)
+@router.get("/{meeting_id}", response_model=MeetingDetail | MeetingDeletedNotice)
 def get_meeting(
     meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     meeting = meeting_service.get_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+    if meeting.deleted_at is not None:
+        return MeetingDeletedNotice(id=meeting.id)
     detail = MeetingDetail.model_validate(meeting)
     if meeting.organizer_id != current_user.id:
         # checkin_token adalah magic link milik masing-masing peserta — jangan
