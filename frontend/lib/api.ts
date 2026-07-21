@@ -66,6 +66,23 @@ export const updateProfile = async (data: {
   return response.data;
 };
 
+// Belum ada di backend — lihat plan/handoff-avatar-rsvp.md. Diasumsikan balikin
+// UserProfile lengkap (termasuk avatar_url baru) supaya react-query cache bisa
+// langsung di-update dari response ini, gak perlu refetch terpisah.
+export const uploadAvatar = async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("/auth/me/avatar", formData, {
+    headers: { "Content-Type": undefined },
+  });
+  return response.data;
+};
+
+export const deleteAvatar = async () => {
+  const response = await api.delete("/auth/me/avatar");
+  return response.data;
+};
+
 // Login/register lewat Google SSO — bentuk response HARUS sama dengan loginUser()
 // di atas (access_token + name), plus email (loginUser tidak butuh ini karena FE
 // sudah punya email dari input form; alur Google tidak punya sumber lain buat email).
@@ -270,6 +287,14 @@ export const lockAttendance = async (meetingId: string) => {
   return response.data;
 };
 
+// Belum ada di backend — lihat plan/handoff-avatar-rsvp.md. Self-service oleh
+// participant yang login (current_user), beda dari updateAttendance() di atas
+// yang dipakai ORGANIZER buat nyatet kehadiran orang lain pas hari-H.
+export const submitRsvp = async (meetingId: string, response_: "akan_hadir" | "tidak_hadir") => {
+  const response = await api.patch(`/meetings/${meetingId}/rsvp`, { response: response_ });
+  return response.data;
+};
+
 // ==========================================
 // ACTION ITEMS
 // ==========================================
@@ -319,6 +344,74 @@ export const disconnectCalendar = async () => {
 export const getGoogleCalendarConnectUrl = () => {
   const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
   return `${base}/auth/google/calendar/connect`;
+};
+
+// ==========================================
+// ADMIN & SUPERADMIN
+// Kontrak dari plan/admin-role-frontend-handoff.md (Audi, 2026-07-20) — status
+// kode BE-nya di GitHub belum terkonfirmasi ada saat ini, jadi endpoint-endpoint
+// ini kemungkinan 404 sampai dikonfirmasi/di-merge. Dibangun duluan (parallel
+// dev) sesuai pola yang sama dengan fitur-fitur sebelumnya.
+// ==========================================
+
+export const getAdminUsers = async () => {
+  const response = await api.get("/admin/users");
+  return response.data;
+};
+
+export const suspendUser = async (userId: string) => {
+  const response = await api.patch(`/admin/users/${userId}/suspend`);
+  return response.data;
+};
+
+export const unsuspendUser = async (userId: string) => {
+  const response = await api.patch(`/admin/users/${userId}/unsuspend`);
+  return response.data;
+};
+
+export const updateUserRole = async (userId: string, role: "user" | "admin" | "superadmin") => {
+  const response = await api.patch(`/admin/users/${userId}/role`, { role });
+  return response.data;
+};
+
+export const resetUserPassword = async (userId: string) => {
+  const response = await api.post(`/admin/users/${userId}/reset-password`);
+  return response.data;
+};
+
+export const getAdminMeetings = async () => {
+  const response = await api.get("/admin/meetings");
+  return response.data;
+};
+
+// Setiap panggilan = 1 baris audit log baru di BE (by design, lihat handoff doc)
+// — JANGAN cache/reuse hasil ini, selalu request baru tiap kali admin buka isi
+// meeting, walau meeting yang sama.
+export const requestMeetingAccess = async (meetingId: string, reason: string) => {
+  const response = await api.post(`/admin/meetings/${meetingId}/access-requests`, { reason });
+  return response.data;
+};
+
+export const adminDeleteMeeting = async (meetingId: string) => {
+  await api.delete(`/admin/meetings/${meetingId}`);
+};
+
+export const adminDeleteRecording = async (recordingId: string) => {
+  await api.delete(`/admin/recordings/${recordingId}`);
+};
+
+export const getAuditLogs = async (limit = 50, offset = 0) => {
+  const response = await api.get("/admin/audit-logs", { params: { limit, offset } });
+  return response.data;
+};
+
+// Publik, tanpa auth — dipanggil dari halaman /reset-password/[token].
+export const confirmResetPassword = async (token: string, newPassword: string) => {
+  const response = await api.post("/auth/reset-password/confirm", {
+    token,
+    new_password: newPassword,
+  });
+  return response.data;
 };
 
 export default api;

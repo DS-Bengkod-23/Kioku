@@ -7,6 +7,7 @@ import {
   completeMeeting,
   lockAttendance,
   confirmCheckin,
+  submitRsvp,
 } from "@/lib/api";
 
 export function useMeeting(id: string) {
@@ -83,6 +84,17 @@ export function useSelfCheckIn(meetingId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (checkinToken: string) => confirmCheckin(checkinToken),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
+    },
+  });
+}
+
+// Belum ada di backend — lihat plan/handoff-avatar-rsvp.md.
+export function useSubmitRsvp(meetingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (response: "akan_hadir" | "tidak_hadir") => submitRsvp(meetingId, response),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
     },

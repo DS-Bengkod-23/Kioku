@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Video, CheckSquare, Calendar, User, LogOut } from "lucide-react";
+import { Video, CheckSquare, Calendar, User, LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ReminderBell from "@/components/ReminderBell";
+import ProfileSetupModal from "@/components/ProfileSetupModal";
+import { useProfile } from "@/hooks/useProfile";
+
+const PROFILE_SETUP_PROMPTED_KEY = "profile_setup_prompted";
 
 export default function MainDashboardLayout({
     children,
@@ -19,6 +23,23 @@ export default function MainDashboardLayout({
     const isActive = (href: string) => pathname.startsWith(href);
 
     const [profileName, setProfileName] = useState("John Doe");
+
+    // Popup lengkapi profil — muncul sekali (per browser, dilacak localStorage)
+    // begitu data profil ASLI (dari GET /auth/me, bukan cache lokal fake session)
+    // kedetek kosong semua. Ini kejadiannya paling sering pas abis login pertama
+    // kali karena itu titik dimana user landing di halaman (main)/* pertama kali.
+    const { data: profile } = useProfile();
+    const [showProfileSetup, setShowProfileSetup] = useState(false);
+    useEffect(() => {
+        if (!profile) return;
+        if (localStorage.getItem(PROFILE_SETUP_PROMPTED_KEY)) return;
+        const isEmpty = !profile.job_title && !profile.department && !profile.bio;
+        if (isEmpty) setShowProfileSetup(true);
+    }, [profile]);
+    const dismissProfileSetup = () => {
+        localStorage.setItem(PROFILE_SETUP_PROMPTED_KEY, "true");
+        setShowProfileSetup(false);
+    };
 
     const loadProfileData = () => {
         const savedProfile = localStorage.getItem("user_profile");
@@ -103,6 +124,20 @@ export default function MainDashboardLayout({
                         >
                             <CheckSquare size={15} /> Tugas Saya
                         </Link>
+                        {/* Sesuai plan/admin-role-frontend-handoff.md — cuma muncul kalau role !== "user" */}
+                        {profile?.role && profile.role !== "user" && (
+                            <Link
+                                href="/admin"
+                                className={cn(
+                                    "flex items-center gap-2 px-4 py-2 rounded-lg border-b-2 transition-all",
+                                    isActive("/admin")
+                                        ? "text-indigo-700 font-bold border-indigo-600"
+                                        : "text-slate-400 hover:text-slate-700 border-transparent"
+                                )}
+                            >
+                                <ShieldCheck size={15} /> Admin
+                            </Link>
+                        )}
                     </nav>
 
                     {/* Reminder Bell & Avatar */}
@@ -141,6 +176,8 @@ export default function MainDashboardLayout({
             </header>
 
             <main className="w-full flex-1">{children}</main>
+
+            {showProfileSetup && <ProfileSetupModal onClose={dismissProfileSetup} />}
         </div>
     );
 }

@@ -29,6 +29,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Halaman reset password publik (link dari email, no auth) — lihat
+  // plan/admin-role-frontend-handoff.md
+  if (pathname.startsWith("/reset-password")) {
+    return NextResponse.next();
+  }
+
   if (!token) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
