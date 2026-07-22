@@ -146,12 +146,31 @@ def request_meeting_content_access(
 
 
 def list_audit_logs(db: Session, actor: User, limit: int = 50, offset: int = 0) -> list[AuditLogResponse]:
-    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    query = (
+        db.query(AuditLog)
+        .options(joinedload(AuditLog.actor))
+        .order_by(AuditLog.created_at.desc())
+    )
     if actor.role == UserRole.admin:
         # Admin sees only their own actions; superadmin sees everything.
         query = query.filter(AuditLog.actor_id == actor.id)
     logs = query.offset(offset).limit(limit).all()
-    return [AuditLogResponse.model_validate(log) for log in logs]
+    return [
+        AuditLogResponse(
+            id=log.id,
+            actor_id=log.actor_id,
+            # actor can be None if the actor's account was later removed
+            # (no hard-delete exists yet, but actor_id is SET NULL-capable).
+            actor_name=log.actor.name if log.actor else None,
+            actor_email=log.actor.email if log.actor else None,
+            action=log.action,
+            target_type=log.target_type,
+            target_id=log.target_id,
+            reason=log.reason,
+            created_at=log.created_at,
+        )
+        for log in logs
+    ]
 
 
 def delete_meeting(db: Session, actor: User, meeting_id: uuid.UUID) -> None:

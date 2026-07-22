@@ -33,6 +33,8 @@ def test_superadmin_sees_all_actions(db_session, make_user):
 
     assert len(results) == 1
     assert results[0].actor_id == admin_a.id
+    assert results[0].actor_name == admin_a.name
+    assert results[0].actor_email == admin_a.email
 
 
 def test_pagination_limit_and_offset(db_session, make_user):

@@ -53,6 +53,8 @@ class MeetingContentAccessRequest(BaseModel):
 class AuditLogResponse(BaseModel):
     id: UUID
     actor_id: UUID | None
+    actor_name: str | None = None
+    actor_email: str | None = None
     action: AuditAction
     target_type: str
     target_id: UUID
