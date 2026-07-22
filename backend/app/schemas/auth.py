@@ -44,6 +44,7 @@ class UserProfileResponse(BaseModel):
     job_title: Optional[str] = None
     department: Optional[str] = None
     bio: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

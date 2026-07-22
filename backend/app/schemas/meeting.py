@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import List, Optional, Any
+from typing import List, Literal, Optional, Any
 from datetime import datetime
 from uuid import UUID
 from app.schemas.recording import RecordingResponse
@@ -37,6 +37,7 @@ class ParticipantResponse(BaseModel):
     name: Optional[str] = None
     role: str
     attendance_status: str
+    rsvp_status: str
     checkin_token: Optional[str] = None
 
     @model_validator(mode='before')
@@ -53,6 +54,8 @@ class ParticipantResponse(BaseModel):
 
         role = data.role.value if hasattr(data.role, 'value') else data.role
 
+        rsvp_status = data.rsvp_status.value if hasattr(data.rsvp_status, 'value') else data.rsvp_status
+
         checkin_token = data.invitation.token if getattr(data, 'invitation', None) else None
 
         return {
@@ -61,8 +64,13 @@ class ParticipantResponse(BaseModel):
             "name": name,
             "role": role,
             "attendance_status": attendance_status,
+            "rsvp_status": rsvp_status,
             "checkin_token": checkin_token,
         }
+
+
+class RsvpRequest(BaseModel):
+    response: Literal["akan_hadir", "tidak_hadir"]
 
 
 class MeetingListItem(BaseModel):

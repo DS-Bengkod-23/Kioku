@@ -1,8 +1,10 @@
+import io
 import uuid
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, Request, status
+from PIL import Image
+from fastapi import Depends, HTTPException, Request, UploadFile, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token as google_id_token
@@ -11,7 +13,15 @@ from google.auth import exceptions as google_exceptions
 from app.config import settings
 from app.database import get_db
 from app.models.user import User, AuthProvider, UserRole
-from app.schemas.auth import UserProfileUpdateRequest
+from app.schemas.auth import UserProfileResponse, UserProfileUpdateRequest
+from app.services import storage
+
+# Ekstensi yang diterima buat avatar, dan format Pillow yang harus terdeteksi
+# untuk masing-masing -- sama seperti mutagen di services/recording.py, ini
+# memastikan isi file benar-benar gambar sesuai klaim ekstensinya, bukan cuma
+# percaya nama file dari client.
+_AVATAR_FORMAT_BY_EXT = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG", "webp": "WEBP"}
+_MAX_AVATAR_SIZE_MB = 5
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer = HTTPBearer()
@@ -187,4 +197,61 @@ def update_profile(db: Session, user: User, data: UserProfileUpdateRequest) -> U
         setattr(user, field, value)
     db.commit()
     db.refresh(user)
+    return user
+
+
+def build_profile_response(user: User) -> UserProfileResponse:
+    avatar_url = storage.get_avatar_url(user.avatar_object_key) if user.avatar_object_key else None
+    return UserProfileResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        job_title=user.job_title,
+        department=user.department,
+        bio=user.bio,
+        avatar_url=avatar_url,
+        created_at=user.created_at,
+    )
+
+
+async def upload_avatar(db: Session, user: User, file: UploadFile) -> User:
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
+    if ext not in _AVATAR_FORMAT_BY_EXT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format file tidak didukung. Gunakan: {', '.join(_AVATAR_FORMAT_BY_EXT)}",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) > _MAX_AVATAR_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"Ukuran file melebihi {_MAX_AVATAR_SIZE_MB}MB")
+
+    try:
+        image = Image.open(io.BytesIO(file_bytes))
+        detected_format = image.format
+        image.verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="File tidak dapat dibaca sebagai gambar yang valid")
+
+    if detected_format != _AVATAR_FORMAT_BY_EXT[ext]:
+        raise HTTPException(status_code=400, detail="Isi file tidak sesuai dengan ekstensi yang diklaim")
+
+    old_object_key = user.avatar_object_key
+    user.avatar_object_key = storage.upload_avatar_file(file_bytes, file.filename or f"avatar.{ext}", str(user.id))
+    db.commit()
+    db.refresh(user)
+
+    if old_object_key:
+        storage.delete_file(old_object_key)  # best-effort, sudah menelan ClientError di dalamnya
+
+    return user
+
+
+def delete_avatar(db: Session, user: User) -> User:
+    if user.avatar_object_key:
+        storage.delete_file(user.avatar_object_key)
+        user.avatar_object_key = None
+        db.commit()
+        db.refresh(user)
     return user

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from app.config import settings
 from app.models.meeting import Meeting, MeetingStatus
-from app.models.participant import MeetingParticipant, ParticipantRole
+from app.models.participant import MeetingParticipant, ParticipantRole, RsvpStatus
 from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.user import User
 from app.models.summary import Summary
@@ -265,6 +265,26 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
         sync_meeting_calendar_task.delay(str(meeting.id))
 
     return meeting
+
+
+def submit_rsvp(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, response: str) -> Meeting:
+    participant = (
+        db.query(MeetingParticipant)
+        .filter(MeetingParticipant.meeting_id == meeting_id, MeetingParticipant.user_id == user_id)
+        .first()
+    )
+    if participant is None:
+        # Beda pesan tergantung sebabnya: meeting gak ada (404) vs meeting ada
+        # tapi user ini bukan pesertanya (403) -- bukan dari checkin_token
+        # seperti self check-in, RSVP dicari lewat current_user langsung.
+        if not db.query(Meeting).filter(Meeting.id == meeting_id).first():
+            raise HTTPException(status_code=404, detail="Meeting not found")
+        raise HTTPException(status_code=403, detail="Not authorized to access this meeting")
+
+    participant.rsvp_status = RsvpStatus(response)
+    db.commit()
+
+    return get_meeting(db, meeting_id=meeting_id, user_id=user_id)
 
 
 def complete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:

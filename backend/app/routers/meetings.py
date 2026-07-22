@@ -14,6 +14,7 @@ from app.schemas.meeting import (
     MeetingListResponse,
     MeetingDetail,
     MeetingDeletedNotice,
+    RsvpRequest,
 )
 from app.schemas.action_item import ActionItemResponse, ActionItemCreateRequest
 from app.services import meeting as meeting_service
@@ -21,6 +22,16 @@ from app.services import action_item as action_item_service
 from app.services.pdf import generate_notulen_pdf
 
 router = APIRouter(tags=["meetings"])
+
+
+def _mask_others_checkin_tokens(meeting, detail: MeetingDetail, current_user_id: uuid.UUID) -> MeetingDetail:
+    # checkin_token adalah magic link milik masing-masing peserta -- jangan
+    # bocor ke peserta lain, hanya organizer dan peserta itu sendiri yang boleh melihatnya.
+    if meeting.organizer_id != current_user_id:
+        for participant, participant_detail in zip(meeting.participants, detail.participants):
+            if participant.user_id != current_user_id:
+                participant_detail.checkin_token = None
+    return detail
 
 @router.post("/", response_model=MeetingDetail, status_code=status.HTTP_201_CREATED)
 def create_meeting(
@@ -70,13 +81,7 @@ def get_meeting(
     if meeting.deleted_at is not None:
         return MeetingDeletedNotice(id=meeting.id)
     detail = MeetingDetail.model_validate(meeting)
-    if meeting.organizer_id != current_user.id:
-        # checkin_token adalah magic link milik masing-masing peserta — jangan
-        # bocor ke peserta lain, hanya organizer dan peserta itu sendiri yang boleh melihatnya.
-        for participant, participant_detail in zip(meeting.participants, detail.participants):
-            if participant.user_id != current_user.id:
-                participant_detail.checkin_token = None
-    return detail
+    return _mask_others_checkin_tokens(meeting, detail, current_user.id)
 
 @router.patch("/{meeting_id}", response_model=MeetingDetail)
 def update_meeting(
@@ -94,6 +99,18 @@ def complete_meeting(
     current_user: User = Depends(get_current_user),
 ):
     return meeting_service.complete_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+
+
+@router.patch("/{meeting_id}/rsvp", response_model=MeetingDetail)
+def rsvp_meeting(
+    meeting_id: uuid.UUID,
+    data: RsvpRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    meeting = meeting_service.submit_rsvp(db, meeting_id=meeting_id, user_id=current_user.id, response=data.response)
+    detail = MeetingDetail.model_validate(meeting)
+    return _mask_others_checkin_tokens(meeting, detail, current_user.id)
 
 
 @router.delete("/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)

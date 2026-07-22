@@ -16,6 +16,7 @@ up:
 # Membangun ulang dan menjalankan semua services
 build:
 	docker compose up --build -d
+	docker image prune -f
 
 # Menghentikan semua services
 down:

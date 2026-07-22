@@ -11,6 +11,12 @@ class ParticipantRole(str, enum.Enum):
     peserta = "peserta"
 
 
+class RsvpStatus(str, enum.Enum):
+    pending = "pending"
+    akan_hadir = "akan_hadir"
+    tidak_hadir = "tidak_hadir"
+
+
 class MeetingParticipant(Base):
     __tablename__ = "meeting_participants"
 
@@ -26,6 +32,12 @@ class MeetingParticipant(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[ParticipantRole] = mapped_column(
         SAEnum(ParticipantRole, name="participantrole"), nullable=False
+    )
+    # Konfirmasi kehadiran SEBELUM rapat (beda dari attendance/AttendanceStatus
+    # yang mencatat presensi hari-H lewat check-in) -- self-service oleh
+    # participant yang login, lihat services/meeting.py::submit_rsvp.
+    rsvp_status: Mapped[RsvpStatus] = mapped_column(
+        SAEnum(RsvpStatus, name="rsvpstatus"), default=RsvpStatus.pending, nullable=False
     )
 
     meeting: Mapped["Meeting"] = relationship("Meeting", back_populates="participants")

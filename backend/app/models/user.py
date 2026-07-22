@@ -45,6 +45,10 @@ class User(Base):
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Object key di MinIO/R2 (mis. "avatars/<user_id>/<uuid>.png"), bukan URL --
+    # avatar_url yang dibalikin ke FE dihitung dari ini (lihat services/auth.py
+    # ::build_profile_response), bukan disimpan langsung sebagai URL.
+    avatar_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

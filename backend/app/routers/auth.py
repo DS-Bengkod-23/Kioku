@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
@@ -23,6 +23,9 @@ from app.services.auth import (
     update_profile,
     authenticate_google,
     decode_password_reset_token,
+    build_profile_response,
+    upload_avatar,
+    delete_avatar,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -92,7 +95,7 @@ def confirm_password_reset(body: PasswordResetConfirmRequest, db: Session = Depe
 
 @router.get("/me", response_model=UserProfileResponse)
 def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return build_profile_response(current_user)
 
 
 @router.patch("/me", response_model=UserProfileResponse)
@@ -101,4 +104,23 @@ def update_me(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return update_profile(db, current_user, body)
+    return build_profile_response(update_profile(db, current_user, body))
+
+
+@router.post("/me/avatar", response_model=UserProfileResponse)
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = await upload_avatar(db, current_user, file)
+    return build_profile_response(user)
+
+
+@router.delete("/me/avatar", response_model=UserProfileResponse)
+def delete_my_avatar(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = delete_avatar(db, current_user)
+    return build_profile_response(user)
