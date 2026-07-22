@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle, Lock } from "lucide-react";
+import { ArrowLeft, UserCircle, Calendar, MapPin, Trash2, Download, CheckCircle, Lock, HelpCircle, X } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn, isDateOverdue, daysUntil, extractApiError, readUserProfile } from "@/lib/utils";
@@ -28,7 +28,7 @@ import TranscriptView from "@/components/notulen/TranscriptView";
 import AttendanceTable from "@/components/meetings/AttendanceTable";
 
 
-import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting, useLockAttendance, useSelfCheckIn } from "@/hooks/useMeeting";
+import { useMeeting, useUpdateAttendance, useDeleteMeeting, useCompleteMeeting, useLockAttendance, useSelfCheckIn, useSubmitRsvp } from "@/hooks/useMeeting";
 import { useUploadRecording, useRecordingStatus, useDeleteRecording } from "@/hooks/useRecording";
 import { useUpdateActionItem, useCreateActionItem } from "@/hooks/useActionItems";
 import { downloadNotulenPdf } from "@/lib/api";
@@ -77,6 +77,7 @@ export default function MeetingDetailPage() {
   }, [meeting?.processing_status]);
   const { mutate: updateAttendance } = useUpdateAttendance(id);
   const { mutateAsync: selfCheckIn, isPending: isSelfCheckingIn } = useSelfCheckIn(id);
+  const { mutateAsync: submitRsvp, isPending: isSubmittingRsvp } = useSubmitRsvp(id);
   const [selfCheckInBlocked, setSelfCheckInBlocked] = useState(false);
 
   // attendance_locked dari BE cuma ke-fetch sekali pas halaman dibuka — kalau
@@ -171,6 +172,15 @@ export default function MeetingDetailPage() {
       if (err?.response?.status === 403) {
         setSelfCheckInBlocked(true);
       }
+    }
+  };
+
+  const handleRsvp = async (response: "akan_hadir" | "tidak_hadir") => {
+    try {
+      await submitRsvp(response);
+      toast.success(response === "akan_hadir" ? "Terima kasih, sampai jumpa di rapat!" : "Konfirmasi tersimpan.");
+    } catch (err: any) {
+      toast.error(extractApiError(err, "Gagal menyimpan konfirmasi kehadiran. Coba lagi."));
     }
   };
 
@@ -303,6 +313,19 @@ export default function MeetingDetailPage() {
     return (
       <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
         <p className="text-rose-400 text-sm">Rapat tidak ditemukan atau terjadi kesalahan.</p>
+        <Link href="/meetings" className="text-indigo-600 text-xs hover:underline">← Kembali ke Dashboard</Link>
+      </div>
+    );
+  }
+
+  // GET /meetings/{id} bisa balikin bentuk ini kalau meeting di-soft-delete admin
+  // (lihat plan/admin-role-frontend-handoff.md) — HARUS dicek sebelum baca field
+  // MeetingDetail lain (participants, organizer, dst.), karena field itu gak ada
+  // sama sekali di bentuk response ini.
+  if ((meeting as any).deleted === true) {
+    return (
+      <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+        <p className="text-slate-500 text-sm max-w-md text-center">{(meeting as any).message}</p>
         <Link href="/meetings" className="text-indigo-600 text-xs hover:underline">← Kembali ke Dashboard</Link>
       </div>
     );
@@ -512,6 +535,61 @@ export default function MeetingDetailPage() {
                 </div>
               )}
             </section>
+
+            {/* RSVP — konfirmasi kehadiran SEBELUM hari-H, beda dari "Presensi Saya"
+                di bawah yang nyatet kehadiran beneran pas hari-H. Cuma relevan
+                selama meeting belum berlangsung. */}
+            {!isOrganizer && myParticipant && meeting.status === "scheduled" && (
+              <section className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <div className="px-6 py-3.5 border-b border-slate-200 flex items-center gap-2">
+                  <HelpCircle size={14} className="text-indigo-500" />
+                  <h2 className="text-xs font-bold text-indigo-600 uppercase tracking-wider">Konfirmasi Kehadiran</h2>
+                </div>
+                <div className="p-6">
+                  {myParticipant.rsvp_status === "akan_hadir" ? (
+                    <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                      <div className="h-10 w-10 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                        <CheckCircle size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-emerald-700">Kamu konfirmasi akan hadir</p>
+                        <p className="text-xs text-emerald-600 mt-0.5">Sampai jumpa di rapat!</p>
+                      </div>
+                    </div>
+                  ) : myParticipant.rsvp_status === "tidak_hadir" ? (
+                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                      <div className="h-10 w-10 rounded-full bg-slate-300 text-white flex items-center justify-center shrink-0">
+                        <X size={18} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-600">Kamu konfirmasi tidak hadir</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Organizer sudah diberi tahu.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-500">Apakah kamu akan hadir di rapat ini?</p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleRsvp("akan_hadir")}
+                          disabled={isSubmittingRsvp}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-all"
+                        >
+                          Ya, akan hadir
+                        </button>
+                        <button
+                          onClick={() => handleRsvp("tidak_hadir")}
+                          disabled={isSubmittingRsvp}
+                          className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-sm py-2.5 px-4 rounded-xl transition-all"
+                        >
+                          Tidak bisa hadir
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Presensi Saya (khusus peserta yang login lewat akun sendiri) */}
             {!isOrganizer && myParticipant && (

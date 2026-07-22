@@ -1,16 +1,40 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Sparkles, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { FormError } from "@/components/ui/form-error";
 import { extractApiError } from "@/lib/utils";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
+// useSearchParams() wajib dibungkus <Suspense> di Next.js App Router (lihat juga
+// fix yang sama di profile/page.tsx) — makanya default export cuma wrapper tipis.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  );
+}
+
+function LoginPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // middleware.ts nyimpen tujuan asli user di ?redirect= sebelum nendang ke sini
+  // (mis. buka /admin belum login -> /login?redirect=%2Fadmin). Validasi harus
+  // path internal yang diawali "/" (bukan "//" yang browser anggap protocol-relative
+  // ke domain lain) — jangan langsung percaya nilai query param mentah-mentah.
+  const getRedirectTarget = () => {
+    const redirect = searchParams.get("redirect");
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      return redirect;
+    }
+    return "/meetings";
+  };
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +73,7 @@ export default function LoginPage() {
     // balik ke /meetings di tengah-tengah halaman lain.
     const t1 = setTimeout(() => {
       setIsFlying(true);
-      const t2 = setTimeout(() => router.replace("/meetings"), 1000);
+      const t2 = setTimeout(() => router.replace(getRedirectTarget()), 1000);
       timeoutIds.current.push(t2);
     }, 600);
     timeoutIds.current.push(t1);
