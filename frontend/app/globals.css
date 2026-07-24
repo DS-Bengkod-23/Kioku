@@ -80,6 +80,22 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Browser native <button> defaultnya cursor: default (bukan pointer) kecuali
+     di-override — banyak tombol di app ini gak eksplisit set cursor-pointer,
+     jadi hover-nya gak kelihatan jelas kalau itu bisa diklik. Diset global di
+     sini sekali, biar konsisten di semua tombol tanpa perlu edit tiap file. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  select,
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 @keyframes float {

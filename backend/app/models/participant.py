@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, Text, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import enum
@@ -9,6 +9,12 @@ from app.database import Base
 class ParticipantRole(str, enum.Enum):
     organizer = "organizer"
     peserta = "peserta"
+
+
+class RsvpStatus(str, enum.Enum):
+    pending = "pending"
+    akan_hadir = "akan_hadir"
+    tidak_hadir = "tidak_hadir"
 
 
 class MeetingParticipant(Base):
@@ -27,6 +33,13 @@ class MeetingParticipant(Base):
     role: Mapped[ParticipantRole] = mapped_column(
         SAEnum(ParticipantRole, name="participantrole"), nullable=False
     )
+    # Konfirmasi kehadiran SEBELUM rapat (beda dari attendance/AttendanceStatus
+    # yang mencatat presensi hari-H lewat check-in) -- self-service oleh
+    # participant yang login, lihat services/meeting.py::submit_rsvp.
+    rsvp_status: Mapped[RsvpStatus] = mapped_column(
+        SAEnum(RsvpStatus, name="rsvpstatus"), default=RsvpStatus.pending, nullable=False
+    )
+    rsvp_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     meeting: Mapped["Meeting"] = relationship("Meeting", back_populates="participants")
     user: Mapped["User | None"] = relationship("User", back_populates="participations")

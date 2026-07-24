@@ -38,6 +38,13 @@ class Meeting(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+    # Admin soft-delete (separate from the organizer's own hard-delete in
+    # services/meeting.py::delete_meeting) — the row is kept so participants
+    # can be shown a generic notice instead of a silent disappearance or 404.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by_admin_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
 
     organizer: Mapped["User"] = relationship(
         "User", back_populates="meetings_organized", foreign_keys=[organizer_id]

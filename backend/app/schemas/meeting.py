@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from typing import List, Optional, Any
+from typing import List, Literal, Optional, Any
 from datetime import datetime
 from uuid import UUID
 from app.schemas.recording import RecordingResponse
@@ -37,6 +37,8 @@ class ParticipantResponse(BaseModel):
     name: Optional[str] = None
     role: str
     attendance_status: str
+    rsvp_status: str
+    rsvp_reason: Optional[str] = None
     checkin_token: Optional[str] = None
 
     @model_validator(mode='before')
@@ -53,6 +55,8 @@ class ParticipantResponse(BaseModel):
 
         role = data.role.value if hasattr(data.role, 'value') else data.role
 
+        rsvp_status = data.rsvp_status.value if hasattr(data.rsvp_status, 'value') else data.rsvp_status
+
         checkin_token = data.invitation.token if getattr(data, 'invitation', None) else None
 
         return {
@@ -61,8 +65,15 @@ class ParticipantResponse(BaseModel):
             "name": name,
             "role": role,
             "attendance_status": attendance_status,
+            "rsvp_status": rsvp_status,
+            "rsvp_reason": data.rsvp_reason,
             "checkin_token": checkin_token,
         }
+
+
+class RsvpRequest(BaseModel):
+    response: Literal["akan_hadir", "tidak_hadir"]
+    reason: Optional[str] = None
 
 
 class MeetingListItem(BaseModel):
@@ -75,6 +86,7 @@ class MeetingListItem(BaseModel):
     attendance_count: int
     has_recording: bool
     processing_status: Optional[str] = None
+    deleted_at: Optional[datetime] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -87,8 +99,9 @@ class MeetingListItem(BaseModel):
         participant_count = len(data.participants) if hasattr(data, 'participants') else 0
         attendance_count = sum(1 for p in (data.participants if hasattr(data, 'participants') else []) if p.attendance and p.attendance.status.value == "hadir")
 
-        has_recording = data.recording is not None if hasattr(data, 'recording') else False
-        processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
+        recording = data.recording if getattr(data, 'recording', None) and data.recording.deleted_at is None else None
+        has_recording = recording is not None
+        processing_status = getattr(recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):
             processing_status = processing_status.value
 
@@ -101,7 +114,8 @@ class MeetingListItem(BaseModel):
             "participant_count": participant_count,
             "attendance_count": attendance_count,
             "has_recording": has_recording,
-            "processing_status": processing_status
+            "processing_status": processing_status,
+            "deleted_at": getattr(data, 'deleted_at', None),
         }
 
 
@@ -110,6 +124,12 @@ class MeetingListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class MeetingDeletedNotice(BaseModel):
+    id: UUID
+    deleted: bool = True
+    message: str = "Meeting ini telah dihapus oleh admin."
 
 
 class OrganizerResponse(BaseModel):
@@ -146,11 +166,17 @@ class MeetingDetail(BaseModel):
     def extract_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             return data
+        if not hasattr(data, 'organizer'):
+            # Not a Meeting ORM instance (e.g. a MeetingDeletedNotice already
+            # constructed by the router) — let the Union try the next member
+            # instead of crashing on a raw AttributeError.
+            raise ValueError("Expected a Meeting ORM instance")
 
         status = data.status.value if hasattr(data.status, 'value') else data.status
 
-        has_recording = data.recording is not None if hasattr(data, 'recording') else False
-        processing_status = getattr(data.recording, 'processing_status', None) if has_recording else None
+        recording = data.recording if getattr(data, 'recording', None) and data.recording.deleted_at is None else None
+        has_recording = recording is not None
+        processing_status = getattr(recording, 'processing_status', None) if has_recording else None
         if processing_status and hasattr(processing_status, 'value'):
             processing_status = processing_status.value
 
@@ -199,7 +225,7 @@ class MeetingDetail(BaseModel):
             "attendance_locked": data.attendance_locked,
             "organizer": data.organizer,
             "participants": data.participants,
-            "recording": data.recording,
+            "recording": recording,
             "processing_status": processing_status,
             "transcript": transcript,
             "summary": summary,

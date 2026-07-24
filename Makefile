@@ -1,4 +1,4 @@
-.PHONY: init up down logs migrate restart build check pre-commit infra build-worker build-api build-frontend
+.PHONY: init up down logs migrate restart build check pre-commit infra build-worker build-api build-frontend test
 
 # Setup awal — bikin .env dari .env.example kalau belum ada (tidak menimpa yang sudah ada)
 init:
@@ -16,6 +16,7 @@ up:
 # Membangun ulang dan menjalankan semua services
 build:
 	docker compose up --build -d
+	docker image prune -f
 
 # Menghentikan semua services
 down:
@@ -48,6 +49,10 @@ migrate:
 # Menjalankan format pre-commit secara manual
 pre-commit:
 	pre-commit run --all-files
+
+# Menjalankan test suite backend (pytest di dalam container backend-api)
+test:
+	docker compose exec backend-api python -m pytest
 
 # [Hybrid mode] Jalankan infrastruktur + celery-worker sekaligus
 infra:

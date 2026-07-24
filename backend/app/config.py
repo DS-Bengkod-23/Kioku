@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str
     MINIO_BUCKET: str
     MINIO_SECURE: bool = False
+    # Host:port yang bisa diakses langsung dari browser user (beda dari
+    # MINIO_ENDPOINT yang dipakai backend-api/celery-worker di dalam network
+    # Docker, mis. "minio:9000") -- dipakai buat bikin avatar_url yang
+    # ditaruh langsung di <img src> tanpa lewat proxy backend. Kosong berarti
+    # sama dengan MINIO_ENDPOINT (berlaku di prod: R2 endpoint sudah publik).
+    MINIO_PUBLIC_ENDPOINT: str = ""
 
     # Email
     SMTP_HOST: str
@@ -79,6 +85,10 @@ class Settings(BaseSettings):
     # Branding (notulen PDF header)
     ORG_NAME: str = "UNIVERSITAS DIAN NUSWANTORO"
     ORG_LOGO_PATH: str = "assets/logo.png"
+
+    @property
+    def minio_public_endpoint(self) -> str:
+        return self.MINIO_PUBLIC_ENDPOINT or self.MINIO_ENDPOINT
 
     @property
     def cors_origins_list(self) -> list[str]:

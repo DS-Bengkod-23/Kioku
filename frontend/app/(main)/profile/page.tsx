@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -8,13 +8,15 @@ import {
     Mail,
     Shield,
     Camera,
+    Loader2,
     ArrowLeft,
     Briefcase,
     Calendar,
     CalendarCheck,
     Link2Off
 } from "lucide-react";
-import { useProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useProfile, useUpdateProfile, useUploadAvatar } from "@/hooks/useProfile";
+import { extractApiError } from "@/lib/utils";
 import { useCalendarStatus, useDisconnectCalendar } from "@/hooks/useCalendar";
 import { getGoogleCalendarConnectUrl } from "@/lib/api";
 
@@ -59,8 +61,10 @@ export default function ProfilePage() {
     const [isEditing, setIsEditing] = useState(false);
     const { data: profile, isLoading, isError } = useProfile();
     const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
+    const { mutate: uploadAvatar, isPending: isUploadingAvatar } = useUploadAvatar();
     const { data: calendarStatus, isLoading: isCalendarLoading } = useCalendarStatus();
     const { mutate: disconnectCalendar, isPending: isDisconnecting } = useDisconnectCalendar();
+    const avatarInputRef = useRef<HTMLInputElement>(null);
 
     const [formState, setFormState] = useState<ProfileFormState>(EMPTY_FORM);
 
@@ -68,6 +72,29 @@ export default function ProfilePage() {
         disconnectCalendar(undefined, {
             onSuccess: () => toast.success("Google Calendar terputus."),
             onError: () => toast.error("Gagal memutuskan Google Calendar. Coba lagi."),
+        });
+    };
+
+    const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB — belum ada batas resmi dari BE,
+    // lihat plan/handoff-avatar-rsvp.md, ini cuma jaga-jaga sisi FE.
+
+    const handleAvatarClick = () => avatarInputRef.current?.click();
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = ""; // biar bisa pilih file yang sama lagi kalau mau ganti ulang
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error("File harus berupa gambar.");
+            return;
+        }
+        if (file.size > MAX_AVATAR_SIZE) {
+            toast.error("Ukuran gambar maksimal 5MB.");
+            return;
+        }
+        uploadAvatar(file, {
+            onSuccess: () => toast.success("Foto profil berhasil diperbarui."),
+            onError: (err) => toast.error(extractApiError(err, "Gagal mengunggah foto profil.")),
         });
     };
 
@@ -170,12 +197,29 @@ export default function ProfilePage() {
                         <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-8 text-center space-y-5">
                             <div className="relative inline-block">
                                 <div className="w-32 h-32 rounded-full border-2 border-indigo-200 p-1 mx-auto overflow-hidden">
-                                    <div className="w-full h-full rounded-full bg-indigo-50 flex items-center justify-center">
-                                        <User size={60} className="text-indigo-600" />
+                                    <div className="w-full h-full rounded-full bg-indigo-50 flex items-center justify-center overflow-hidden">
+                                        {profile.avatar_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <User size={60} className="text-indigo-600" />
+                                        )}
                                     </div>
                                 </div>
-                                <button className="absolute bottom-1 right-1 p-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-700 transition shadow-md">
-                                    <Camera size={16} />
+                                <input
+                                    ref={avatarInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleAvatarChange}
+                                />
+                                <button
+                                    onClick={handleAvatarClick}
+                                    disabled={isUploadingAvatar}
+                                    title="Ganti foto profil"
+                                    className="absolute bottom-1 right-1 p-2 bg-indigo-600 rounded-full text-white hover:bg-indigo-700 transition shadow-md disabled:opacity-60"
+                                >
+                                    {isUploadingAvatar ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
                                 </button>
                             </div>
 

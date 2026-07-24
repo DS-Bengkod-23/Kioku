@@ -12,6 +12,12 @@ class AuthProvider(str, enum.Enum):
     google = "google"
 
 
+class UserRole(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+    superadmin = "superadmin"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -27,9 +33,22 @@ class User(Base):
         nullable=False,
     )
     google_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    role: Mapped[UserRole] = mapped_column(
+        SAEnum(UserRole, name="userrole"),
+        default=UserRole.user,
+        nullable=False,
+    )
+    # Presence means suspended; also records *when* for free, no separate
+    # boolean needed. Checked on every request in _decode_user_token, not
+    # just at login.
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     job_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     department: Mapped[str | None] = mapped_column(String(255), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Object key di MinIO/R2 (mis. "avatars/<user_id>/<uuid>.png"), bukan URL --
+    # avatar_url yang dibalikin ke FE dihitung dari ini (lihat services/auth.py
+    # ::build_profile_response), bukan disimpan langsung sebagai URL.
+    avatar_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

@@ -8,6 +8,7 @@ from app.models.transcript import Transcript
 from app.models.summary import Summary
 from app.models.action_item import ActionItem
 from app.models.email_log import EmailLog
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "Summary",
     "ActionItem",
     "EmailLog",
+    "AuditLog",
 ]

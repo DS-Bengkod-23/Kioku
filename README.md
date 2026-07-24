@@ -1,5 +1,12 @@
 # Kioku
 
+<p align="center">
+  <img src="assets/LogoApp.png" alt="Kioku Logo" width="150">
+</p>
+
+# Kioku
+
+
 > Your meeting companion. Auto-transcribe, summarize, and distribute notulen — self-hosted infrastructure, cloud LLM for transcription/summarization.
 
 Kioku is an end-to-end meeting management application for offline meetings (rapat kantor, FGD, interview). It handles the full meeting lifecycle: scheduling, email invitations, attendance check-in, recording upload, automatic transcription and summarization, and notulen distribution to all participants.
