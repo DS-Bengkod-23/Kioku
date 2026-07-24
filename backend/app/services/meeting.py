@@ -267,7 +267,9 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data:
     return meeting
 
 
-def submit_rsvp(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, response: str) -> Meeting:
+def submit_rsvp(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, response: str, reason: str | None = None
+) -> Meeting:
     participant = (
         db.query(MeetingParticipant)
         .filter(MeetingParticipant.meeting_id == meeting_id, MeetingParticipant.user_id == user_id)
@@ -282,6 +284,9 @@ def submit_rsvp(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, response
         raise HTTPException(status_code=403, detail="Not authorized to access this meeting")
 
     participant.rsvp_status = RsvpStatus(response)
+    # Alasan cuma relevan buat "tidak_hadir" -- di-null-in kalau user konfirmasi
+    # hadir, biar gak nyimpen keterangan yang gak relevan lagi.
+    participant.rsvp_reason = reason if response == "tidak_hadir" else None
     db.commit()
 
     return get_meeting(db, meeting_id=meeting_id, user_id=user_id)

@@ -99,6 +99,40 @@ def test_nonexistent_meeting_gets_404(client, make_user, auth_headers):
     assert response.status_code == 404
 
 
+def test_decline_with_reason_is_saved(client, db_session, make_user, auth_headers):
+    organizer = make_user()
+    participant = make_user()
+    meeting = _make_meeting_with_participant(db_session, organizer, participant)
+
+    response = client.patch(
+        f"/api/v1/meetings/{meeting.id}/rsvp",
+        json={"response": "tidak_hadir", "reason": "izin sakit"},
+        headers=auth_headers(participant),
+    )
+
+    assert response.status_code == 200
+    my_participant = next(p for p in response.json()["participants"] if p["email"] == participant.email)
+    assert my_participant["rsvp_status"] == "tidak_hadir"
+    assert my_participant["rsvp_reason"] == "izin sakit"
+
+
+def test_confirm_attendance_ignores_reason(client, db_session, make_user, auth_headers):
+    organizer = make_user()
+    participant = make_user()
+    meeting = _make_meeting_with_participant(db_session, organizer, participant)
+
+    response = client.patch(
+        f"/api/v1/meetings/{meeting.id}/rsvp",
+        json={"response": "akan_hadir", "reason": "izin sakit"},
+        headers=auth_headers(participant),
+    )
+
+    assert response.status_code == 200
+    my_participant = next(p for p in response.json()["participants"] if p["email"] == participant.email)
+    assert my_participant["rsvp_status"] == "akan_hadir"
+    assert my_participant["rsvp_reason"] is None
+
+
 def test_invalid_response_value_is_rejected(client, db_session, make_user, auth_headers):
     organizer = make_user()
     participant = make_user()

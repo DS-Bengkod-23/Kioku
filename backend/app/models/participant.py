@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, Text, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import enum
@@ -39,6 +39,7 @@ class MeetingParticipant(Base):
     rsvp_status: Mapped[RsvpStatus] = mapped_column(
         SAEnum(RsvpStatus, name="rsvpstatus"), default=RsvpStatus.pending, nullable=False
     )
+    rsvp_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     meeting: Mapped["Meeting"] = relationship("Meeting", back_populates="participants")
     user: Mapped["User | None"] = relationship("User", back_populates="participations")

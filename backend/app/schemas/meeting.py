@@ -38,6 +38,7 @@ class ParticipantResponse(BaseModel):
     role: str
     attendance_status: str
     rsvp_status: str
+    rsvp_reason: Optional[str] = None
     checkin_token: Optional[str] = None
 
     @model_validator(mode='before')
@@ -65,12 +66,14 @@ class ParticipantResponse(BaseModel):
             "role": role,
             "attendance_status": attendance_status,
             "rsvp_status": rsvp_status,
+            "rsvp_reason": data.rsvp_reason,
             "checkin_token": checkin_token,
         }
 
 
 class RsvpRequest(BaseModel):
     response: Literal["akan_hadir", "tidak_hadir"]
+    reason: Optional[str] = None
 
 
 class MeetingListItem(BaseModel):

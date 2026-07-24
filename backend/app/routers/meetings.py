@@ -108,7 +108,9 @@ def rsvp_meeting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    meeting = meeting_service.submit_rsvp(db, meeting_id=meeting_id, user_id=current_user.id, response=data.response)
+    meeting = meeting_service.submit_rsvp(
+        db, meeting_id=meeting_id, user_id=current_user.id, response=data.response, reason=data.reason
+    )
     detail = MeetingDetail.model_validate(meeting)
     return _mask_others_checkin_tokens(meeting, detail, current_user.id)
 
