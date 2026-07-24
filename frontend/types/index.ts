@@ -30,6 +30,8 @@ export interface ParticipantResponse {
   checkin_token: string | null;
   // Belum ada di backend — lihat plan/handoff-avatar-rsvp.md.
   rsvp_status?: RsvpStatus;
+  // Keterangan opsional (mis. "izin sakit") pas rsvp_status "tidak_hadir".
+  rsvp_reason?: string | null;
 }
 
 export interface OrganizerResponse {
@@ -230,6 +232,8 @@ export type AuditLogAction =
 export interface AuditLogResponse {
   id: string;
   actor_id: string | null;
+  actor_name: string | null;
+  actor_email: string | null;
   action: AuditLogAction;
   target_type: string;
   target_id: string;

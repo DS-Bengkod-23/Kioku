@@ -78,6 +78,8 @@ export default function MeetingDetailPage() {
   const { mutate: updateAttendance } = useUpdateAttendance(id);
   const { mutateAsync: selfCheckIn, isPending: isSelfCheckingIn } = useSelfCheckIn(id);
   const { mutateAsync: submitRsvp, isPending: isSubmittingRsvp } = useSubmitRsvp(id);
+  const [showDeclineReason, setShowDeclineReason] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
   const [selfCheckInBlocked, setSelfCheckInBlocked] = useState(false);
 
   // attendance_locked dari BE cuma ke-fetch sekali pas halaman dibuka — kalau
@@ -175,9 +177,9 @@ export default function MeetingDetailPage() {
     }
   };
 
-  const handleRsvp = async (response: "akan_hadir" | "tidak_hadir") => {
+  const handleRsvp = async (response: "akan_hadir" | "tidak_hadir", reason?: string) => {
     try {
-      await submitRsvp(response);
+      await submitRsvp({ response, reason });
       toast.success(response === "akan_hadir" ? "Terima kasih, sampai jumpa di rapat!" : "Konfirmasi tersimpan.");
     } catch (err: any) {
       toast.error(extractApiError(err, "Gagal menyimpan konfirmasi kehadiran. Coba lagi."));
@@ -239,15 +241,21 @@ export default function MeetingDetailPage() {
   // Map participants ke format AttendanceTable
   const attendanceData = (meeting?.participants ?? []).map((p: ParticipantResponse) => {
     const rawStatus = p.attendance_status ?? "pending";
+    // "Izin" cuma dipakai selama belum ada check-in beneran (rawStatus masih
+    // "pending") — begitu attendance_status jadi hadir/tidak_hadir (ground
+    // truth dari check-in), itu yang menang, bukan RSVP.
+    const isRsvpDeclinedPending = rawStatus === "pending" && p.rsvp_status === "tidak_hadir";
     const status =
       rawStatus === "hadir" ? "Hadir" :
-      rawStatus === "tidak_hadir" ? "Tidak Hadir" : "Belum Hadir";
+      rawStatus === "tidak_hadir" ? "Tidak Hadir" :
+      isRsvpDeclinedPending ? "Izin" : "Belum Hadir";
     return {
       id: String(p.id),
       name: p.name || p.email?.split("@")[0] || "Tanpa Nama",
       email: p.email,
-      status: status as "Hadir" | "Tidak Hadir" | "Belum Hadir",
+      status: status as "Hadir" | "Tidak Hadir" | "Belum Hadir" | "Izin",
       rawStatus,
+      rsvpReason: isRsvpDeclinedPending ? (p.rsvp_reason ?? null) : null,
     };
   });
 
@@ -557,13 +565,46 @@ export default function MeetingDetailPage() {
                       </div>
                     </div>
                   ) : myParticipant.rsvp_status === "tidak_hadir" ? (
-                    <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                    <div className="flex items-start gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
                       <div className="h-10 w-10 rounded-full bg-slate-300 text-white flex items-center justify-center shrink-0">
                         <X size={18} />
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-600">Kamu konfirmasi tidak hadir</p>
-                        <p className="text-xs text-slate-400 mt-0.5">Organizer sudah diberi tahu.</p>
+                        {myParticipant.rsvp_reason ? (
+                          <p className="text-xs text-slate-500 mt-0.5">Keterangan: {myParticipant.rsvp_reason}</p>
+                        ) : (
+                          <p className="text-xs text-slate-400 mt-0.5">Organizer sudah diberi tahu.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : showDeclineReason ? (
+                    <div className="space-y-3">
+                      <label className="text-xs text-slate-500">
+                        Boleh kasih keterangan kenapa gak bisa hadir? (opsional, misal "izin sakit")
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value)}
+                        placeholder="Izin sakit / ada acara lain / dst."
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 outline-none text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition resize-none"
+                      />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setShowDeclineReason(false)}
+                          disabled={isSubmittingRsvp}
+                          className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-sm py-2.5 px-4 rounded-xl transition-all"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={() => handleRsvp("tidak_hadir", declineReason.trim() || undefined)}
+                          disabled={isSubmittingRsvp}
+                          className="flex-1 bg-slate-700 hover:bg-slate-800 disabled:opacity-60 text-white font-semibold text-sm py-2.5 px-4 rounded-xl transition-all"
+                        >
+                          {isSubmittingRsvp ? "Mengirim..." : "Kirim Konfirmasi"}
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -578,7 +619,7 @@ export default function MeetingDetailPage() {
                           Ya, akan hadir
                         </button>
                         <button
-                          onClick={() => handleRsvp("tidak_hadir")}
+                          onClick={() => setShowDeclineReason(true)}
                           disabled={isSubmittingRsvp}
                           className="flex-1 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold text-sm py-2.5 px-4 rounded-xl transition-all"
                         >

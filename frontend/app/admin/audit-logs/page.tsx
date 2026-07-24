@@ -57,6 +57,7 @@ export default function AdminAuditLogsPage() {
                             <thead>
                                 <tr className="border-b border-slate-200 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                     <th className="px-6 py-3">Waktu</th>
+                                    <th className="px-6 py-3">Oleh</th>
                                     <th className="px-6 py-3">Aksi</th>
                                     <th className="px-6 py-3">Target</th>
                                     <th className="px-6 py-3">Alasan</th>
@@ -66,6 +67,16 @@ export default function AdminAuditLogsPage() {
                                 {logs.map((log) => (
                                     <tr key={log.id} className="border-b border-slate-100 last:border-0">
                                         <td className="px-6 py-3 text-xs text-slate-500 whitespace-nowrap">{formatDate(log.created_at)}</td>
+                                        <td className="px-6 py-3 text-xs">
+                                            {log.actor_name ? (
+                                                <>
+                                                    <p className="font-semibold text-slate-900">{log.actor_name}</p>
+                                                    <p className="text-slate-400 text-[10px] font-mono">{log.actor_email}</p>
+                                                </>
+                                            ) : (
+                                                <span className="text-slate-400 italic">Akun dihapus</span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-3 text-xs font-semibold text-slate-900">{ACTION_LABEL[log.action] ?? log.action}</td>
                                         <td className="px-6 py-3 text-xs text-slate-500">{log.target_type} · {log.target_id.slice(0, 8)}</td>
                                         <td className="px-6 py-3 text-xs text-slate-500 max-w-xs truncate">{log.reason ?? "–"}</td>

@@ -290,8 +290,14 @@ export const lockAttendance = async (meetingId: string) => {
 // Belum ada di backend — lihat plan/handoff-avatar-rsvp.md. Self-service oleh
 // participant yang login (current_user), beda dari updateAttendance() di atas
 // yang dipakai ORGANIZER buat nyatet kehadiran orang lain pas hari-H.
-export const submitRsvp = async (meetingId: string, response_: "akan_hadir" | "tidak_hadir") => {
-  const response = await api.patch(`/meetings/${meetingId}/rsvp`, { response: response_ });
+// `reason` opsional — dipakai pas "tidak_hadir" biar peserta bisa kasih keterangan
+// (mis. "izin sakit") daripada cuma klik tanpa konteks.
+export const submitRsvp = async (
+  meetingId: string,
+  response_: "akan_hadir" | "tidak_hadir",
+  reason?: string
+) => {
+  const response = await api.patch(`/meetings/${meetingId}/rsvp`, { response: response_, reason });
   return response.data;
 };
 

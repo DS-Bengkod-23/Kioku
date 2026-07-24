@@ -68,23 +68,24 @@ FE sudah dibangun dengan asumsi ini — `frontend/app/(main)/profile/page.tsx` r
 
 ### Scope BE
 
-1. **Kolom baru** di `MeetingParticipant`: `rsvp_status` (enum: `pending | akan_hadir | tidak_hadir`, default `pending`). **Ikuti pola Alembic-enum yang didokumentasikan `CLAUDE.md`** (bikin type dulu `checkfirst=True`, jangan `sa.Enum()` langsung di `create_table`/`add_column`).
+1. **Kolom baru** di `MeetingParticipant`: `rsvp_status` (enum: `pending | akan_hadir | tidak_hadir`, default `pending`) **dan** `rsvp_reason` (nullable text). **Ikuti pola Alembic-enum yang didokumentasikan `CLAUDE.md`** (bikin type dulu `checkfirst=True`, jangan `sa.Enum()` langsung di `create_table`/`add_column`).
 2. **Endpoint baru**, self-service oleh participant yang login (pakai `current_user`, cari `MeetingParticipant` miliknya di meeting itu — **bukan** dari `checkin_token` kayak self check-in):
    ```
    PATCH /meetings/{meeting_id}/rsvp
-   Body: { "response": "akan_hadir" | "tidak_hadir" }
+   Body: { "response": "akan_hadir" | "tidak_hadir", "reason"?: string }
 
    200 OK — balikin MeetingDetail atau ParticipantResponse yang sudah keupdate
    403 Forbidden — current_user bukan participant meeting ini
    404 Not Found — meeting gak ditemukan
    ```
-3. `ParticipantResponse` (schema yang sudah ada) perlu nambah field `rsvp_status` di response-nya — supaya FE bisa baca status RSVP peserta lain juga (organizer bisa liat siapa yang udah konfirmasi, kalau nanti mau dibikin agregatnya).
+   `reason` opsional, cuma relevan/dikirim kalau `response = "tidak_hadir"` (FE nampilin form keterangan singkat, misal "izin sakit" — bukan wajib diisi). Simpan apa adanya ke `rsvp_reason`, gak perlu validasi konten.
+3. `ParticipantResponse` (schema yang sudah ada) perlu nambah field `rsvp_status` **dan** `rsvp_reason` di response-nya — supaya FE bisa baca status + keterangan RSVP peserta lain juga (organizer bisa liat siapa yang udah konfirmasi dan alasannya, kalau nanti mau dibikin agregatnya).
 
 ### Kontrak yang FE sudah asumsikan
 
-- `lib/api.ts` — `submitRsvp(meetingId, response)`.
-- `hooks/useMeeting.ts` — `useSubmitRsvp(meetingId)`, invalidate `["meeting", id]` on success.
-- Card "Konfirmasi Kehadiran" di `frontend/app/(main)/meetings/[id]/page.tsx` — muncul buat participant (bukan organizer) **cuma kalau `meeting.status === "scheduled"`** (belum berlangsung). Baca `myParticipant.rsvp_status`, dan render 2 tombol ("Ya, akan hadir" / "Tidak bisa hadir") kalau masih `pending`.
+- `lib/api.ts` — `submitRsvp(meetingId, response, reason?)`.
+- `hooks/useMeeting.ts` — `useSubmitRsvp(meetingId)`, terima `{ response, reason? }`, invalidate `["meeting", id]` on success.
+- Card "Konfirmasi Kehadiran" di `frontend/app/(main)/meetings/[id]/page.tsx` — muncul buat participant (bukan organizer) **cuma kalau `meeting.status === "scheduled"`** (belum berlangsung). Baca `myParticipant.rsvp_status`. Klik "Ya, akan hadir" langsung submit; klik "Tidak bisa hadir" membuka textarea keterangan opsional dulu sebelum submit (bukan langsung submit tanpa konteks). Kalau `rsvp_reason` ada, ditampilkan balik di state "tidak hadir".
 
 ### Yang sengaja BELUM dibangun di FE (di luar scope ini, catat aja)
 

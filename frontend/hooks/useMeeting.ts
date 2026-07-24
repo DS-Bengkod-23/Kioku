@@ -94,7 +94,8 @@ export function useSelfCheckIn(meetingId: string) {
 export function useSubmitRsvp(meetingId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (response: "akan_hadir" | "tidak_hadir") => submitRsvp(meetingId, response),
+    mutationFn: ({ response, reason }: { response: "akan_hadir" | "tidak_hadir"; reason?: string }) =>
+      submitRsvp(meetingId, response, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meeting", meetingId] });
     },
