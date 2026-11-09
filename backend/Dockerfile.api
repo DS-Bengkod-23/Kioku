@@ -17,4 +17,11 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Migrasi + seed akun admin dijalankan tiap start, sebelum uvicorn:
+#   - `alembic upgrade head` bikin `make migrate` manual tidak wajib lagi; kalau
+#     gagal container sengaja mati (API tanpa skema terbaru cuma bikin error aneh).
+#   - `app.services.seed` idempotent dan sudah menelan errornya sendiri, jadi
+#     .env yang salah ketik tidak pernah memblokir startup.
+# Ditulis inline sebagai `sh -c` (bukan file entrypoint.sh) supaya tidak kena
+# masalah line-ending CRLF dari mesin dev Windows.
+CMD ["sh", "-c", "alembic upgrade head && python -m app.services.seed && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

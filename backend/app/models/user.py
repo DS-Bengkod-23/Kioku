@@ -18,6 +18,11 @@ class UserRole(str, enum.Enum):
     superadmin = "superadmin"
 
 
+# Urutan hak akses — dipakai services/admin.py buat membedakan promote vs demote,
+# dan services/seed.py buat memastikan seeder hanya menaikkan role.
+ROLE_RANK = {UserRole.user: 0, UserRole.admin: 1, UserRole.superadmin: 2}
+
+
 class User(Base):
     __tablename__ = "users"
 

@@ -29,6 +29,7 @@ make build
 ```bash
 make migrate   # runs `alembic upgrade head` inside the backend-api container
 ```
+Usually unnecessary — backend-api already runs `alembic upgrade head` on every container start (see `backend/Dockerfile.api`). Keep using `make migrate` when you want to apply a migration without restarting the container.
 
 Create a new migration after changing SQLAlchemy models:
 ```bash
@@ -70,11 +71,26 @@ make test   # runs pytest inside the backend-api container
 ```
 Tests run against a separate `<db>_test` Postgres database (auto-created and migrated to head on first run, same container as dev) — never the dev database. After adding `pytest`/`httpx` or other new backend deps, rebuild first: `docker compose build backend-api`.
 
-### Bootstrap First Superadmin
-```bash
-docker compose exec backend-api python scripts/seed_admin.py --email you@example.com --password ...
+### Bootstrap Admin / Superadmin
+
+Automatic, via `SEED_ACCOUNTS` in `.env` — no command needed. The backend-api container runs `alembic upgrade head` then `python -m app.services.seed` before uvicorn (see `backend/Dockerfile.api`), so the accounts exist as soon as `make up` finishes, including after a `make down-v` wipe.
+
+```env
+# email|password|role|nama — one line, accounts separated by ';'
+SEED_ACCOUNTS=super@kioku.test|ganti-ini|superadmin|Super Admin;admin@kioku.test|ganti-ini|admin|Admin Kampus
 ```
-One-time manual step — there's no admin yet to promote anyone via the API. Refuses to run if the email already exists (won't overwrite an existing account). Every subsequent admin/superadmin is created via promote, not this script.
+
+`role` defaults to `user`, `nama` defaults to the email's local part. Passwords must not contain `|` or `;`. Applying a change to `SEED_ACCOUNTS` only needs a restart (`docker compose up -d backend-api`), not a rebuild — `.env` is read at container start.
+
+Seeding rules (`backend/app/services/seed.py`), designed to be safe to re-run on every boot:
+- Email not present → account created
+- Email already present → **password and name are never overwritten**
+- Existing role lower than the seeded role → promoted, and written to `AuditLog` with `actor_id = NULL` (system action). This is also how you turn an account that already self-registered as `user` into a superadmin.
+- Existing role equal or higher → left alone; **the seeder never demotes**
+
+A malformed `SEED_ACCOUNTS` never blocks startup — the seeder logs `[seed] DILEWATI ...` to stderr and the API boots normally. A failed migration *does* stop the container, deliberately.
+
+`backend/scripts/seed_admin.py` still exists for creating a one-off superadmin without putting its password in `.env`; unlike the auto-seeder it refuses if the email already exists. Promote/demote after bootstrap is normally done via `PATCH /admin/users/:id/role` (superadmin only) or the `/admin/users` page.
 
 ### Frontend Commands (if needed locally)
 Adding shadcn components is still done from inside the frontend folder (requires local Node.js):

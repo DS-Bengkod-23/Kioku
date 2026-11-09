@@ -124,19 +124,28 @@ HF_TOKEN=hf_...             # dari huggingface.co, untuk download model pyannote
 ```
 > Untuk `HF_TOKEN`: daftar di [huggingface.co](https://huggingface.co) → Settings → Access Tokens, lalu accept license model di [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) dan [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0).
 
-Lalu jalankan (**hanya sekali di awal**, karena container dan database masih kosong):
-```bash
-make up && make migrate
+Sekalian atur akun admin pertama lewat `SEED_ACCOUNTS` di `.env` (opsional tapi disarankan — tanpa ini belum ada satu pun akun yang bisa buka halaman `/admin`):
+```env
+# format: email|password|role|nama — satu baris, antar akun dipisah ';'
+SEED_ACCOUNTS=super@kioku.test|ganti-password-ini|superadmin|Super Admin;admin@kioku.test|ganti-password-ini|admin|Admin Kampus
 ```
-> Tanpa `make`? `cp .env.example .env` lalu `docker compose up -d && docker compose exec backend-api alembic upgrade head`.
 
-Buka **http://localhost:3000**.
-
-**Run selanjutnya** (container sudah pernah dibuat & migrasi sudah pernah jalan): cukup
+Lalu jalankan:
 ```bash
 make up
 ```
-tanpa `make migrate` lagi — skema database sudah tersimpan di volume Postgres dan tidak hilang selama tidak menjalankan `make down-v`. `make migrate` hanya perlu diulang kalau ada migration baru (setelah `git pull` yang membawa file migration baru di `backend/alembic/versions/`).
+> Tanpa `make`? `cp .env.example .env` lalu `docker compose up -d`.
+
+Buka **http://localhost:3000** dan login pakai akun dari `SEED_ACCOUNTS` di atas.
+
+Migrasi database dan seed akun admin jalan otomatis tiap container backend-api start, jadi `make up` saja sudah cukup — baik untuk run pertama maupun run-run berikutnya, termasuk setelah `make down-v`.
+
+Soal `SEED_ACCOUNTS`:
+- Aman dijalankan berulang: akun yang emailnya sudah ada **tidak pernah ditimpa** password maupun namanya.
+- Kalau role akun yang sudah ada lebih rendah dari yang ditulis di sini, rolenya **dinaikkan**. Ini cara paling gampang menjadikan akun yang sudah terlanjur register sebagai `user` jadi superadmin.
+- Seeder tidak pernah **menurunkan** role — untuk itu pakai halaman `/admin/users`.
+- Ganti isinya cukup `docker compose up -d backend-api` (restart), tidak perlu rebuild.
+- Password tidak boleh mengandung karakter `|` atau `;`. Untuk production, kosongkan `SEED_ACCOUNTS` atau minimal jangan commit `.env`.
 
 | Service | URL |
 |---|---|
@@ -167,7 +176,7 @@ make logs-worker  # celery worker saja (untuk debug pipeline ML)
 
 ```bash
 make down-v   # stop semua container + hapus volume (wipe DB)
-make up && make migrate   # start fresh
+make up       # start fresh — migrasi + seed akun admin jalan otomatis
 ```
 
 ---

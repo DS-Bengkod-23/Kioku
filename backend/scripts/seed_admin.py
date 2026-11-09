@@ -1,8 +1,13 @@
-"""Bootstrap the first superadmin account.
+"""Bootstrap the first superadmin account, manually.
 
-Run once, manually — there's no admin yet to promote anyone via the API:
+Umumnya tidak perlu lagi: `SEED_ACCOUNTS` di .env sudah bikin akun admin/superadmin
+otomatis tiap backend-api start (lihat app/services/seed.py). Script ini disimpan
+untuk kasus one-off — bikin superadmin tanpa menaruh passwordnya di .env:
 
     docker compose exec backend-api python scripts/seed_admin.py --email you@example.com --password ...
+
+Beda perilaku dengan seeder otomatis: script ini MENOLAK kalau emailnya sudah ada,
+sedangkan seeder otomatis akan menaikkan role akun tersebut.
 """
 import argparse
 import os
