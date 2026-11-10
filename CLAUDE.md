@@ -281,7 +281,7 @@ Toggle the whole feature off via `GOOGLE_CALENDAR_SYNC_ENABLED=false` in `.env` 
 
 ## Storage
 
-- Dev: MinIO (local S3-compatible, docker compose)
+- Dev: MinIO (local S3-compatible, docker compose). The official `minio/minio` image was removed from Docker Hub (upstream community edition is archived), so compose uses a community build pinned by digest via `MINIO_IMAGE` (default `netvark/minio@sha256:…`). Keep a local copy with `docker save`; do not switch to `minio/minio` or an unpinned `:latest`.
 - Prod target: Cloudflare R2
 - Access via `services/storage.py` using boto3 S3 client
 

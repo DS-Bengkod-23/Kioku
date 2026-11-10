@@ -118,7 +118,13 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio
+    # minio/minio sudah dihapus dari Docker Hub (edisi komunitas diarsipkan upstream).
+    # Default = build komunitas netvark, dikunci per digest supaya isinya tidak bisa
+    # berubah diam-diam. Kode sumbernya commit 7aac2a2c5b7c milik minio/minio (dicek ada
+    # di repo resmi) dan image ini lulus tes kompatibilitas storage.py. Binary-nya TIDAK
+    # diverifikasi ulang dari kode sumber; cukup untuk dev/demo, bukan untuk produksi.
+    # Ganti lewat MINIO_IMAGE di .env.
+    image: ${MINIO_IMAGE:-netvark/minio@sha256:77281ea99af0d02e2880e91d345bf81cae584454aedffbb7912331774f42d4bf}
     container_name: meetmate_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
