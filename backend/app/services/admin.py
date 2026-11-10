@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from app.models.user import User, UserRole
+from app.models.user import ROLE_RANK, User, UserRole
 from app.models.meeting import Meeting
 from app.models.recording import Recording
 from app.models.participant import MeetingParticipant
@@ -50,9 +50,6 @@ def _active_superadmin_count(db: Session) -> int:
     )
 
 
-_ROLE_RANK = {UserRole.user: 0, UserRole.admin: 1, UserRole.superadmin: 2}
-
-
 def update_user_role(db: Session, actor: User, target_user_id: uuid.UUID, new_role: UserRole) -> User:
     target = _get_user_or_404(db, target_user_id)
     old_role = target.role
@@ -68,7 +65,7 @@ def update_user_role(db: Session, actor: User, target_user_id: uuid.UUID, new_ro
 
     target.role = new_role
     action = (
-        AuditAction.promote_user if _ROLE_RANK[new_role] > _ROLE_RANK[old_role] else AuditAction.demote_user
+        AuditAction.promote_user if ROLE_RANK[new_role] > ROLE_RANK[old_role] else AuditAction.demote_user
     )
     db.add(
         AuditLog(

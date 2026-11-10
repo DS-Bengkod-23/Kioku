@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
+    # Akun admin/superadmin yang dibuat otomatis saat backend-api start.
+    # Kosong = dilewati. Lihat services/seed.py untuk aturan idempotensinya.
+    SUPERADMIN_EMAIL: str = ""
+    SUPERADMIN_PASSWORD: str = ""
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
+
     # Google SSO
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_SSO_ENABLED: bool = True
