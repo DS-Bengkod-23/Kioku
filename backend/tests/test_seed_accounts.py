@@ -1,61 +1,101 @@
-import pytest
+from types import SimpleNamespace
 
 from app.models.audit_log import AuditAction, AuditLog
 from app.models.user import AuthProvider, User, UserRole
 from app.services.auth import verify_password
 from app.services.seed import (
     SeedAccount,
-    SeedConfigError,
-    parse_seed_accounts,
+    accounts_from_settings,
     seed_accounts,
 )
 
 
-# --- parsing -------------------------------------------------------------
+# --- membaca env ---------------------------------------------------------
 
 
-def test_parses_multiple_accounts_with_roles_and_names():
-    accounts = parse_seed_accounts(
-        "super@example.com|pw1|superadmin|Super Admin;admin@example.com|pw2|admin|Admin Kampus"
+def _cfg(**overrides) -> SimpleNamespace:
+    values = {
+        "SUPERADMIN_EMAIL": "",
+        "SUPERADMIN_PASSWORD": "",
+        "ADMIN_EMAIL": "",
+        "ADMIN_PASSWORD": "",
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_builds_superadmin_and_admin_from_env():
+    accounts = accounts_from_settings(
+        _cfg(
+            SUPERADMIN_EMAIL="super@example.com",
+            SUPERADMIN_PASSWORD="pw1",
+            ADMIN_EMAIL="admin@example.com",
+            ADMIN_PASSWORD="pw2",
+        )
     )
 
-    assert [(a.email, a.role, a.name) for a in accounts] == [
-        ("super@example.com", UserRole.superadmin, "Super Admin"),
-        ("admin@example.com", UserRole.admin, "Admin Kampus"),
+    assert [(a.email, a.role) for a in accounts] == [
+        ("super@example.com", UserRole.superadmin),
+        ("admin@example.com", UserRole.admin),
     ]
 
 
-def test_role_and_name_are_optional():
-    (account,) = parse_seed_accounts("someone@example.com|pw")
-
-    assert account.role == UserRole.user
-    assert account.name == "someone"  # default dari bagian depan email
+def test_all_blank_yields_no_accounts():
+    assert accounts_from_settings(_cfg()) == []
 
 
-def test_tolerates_whitespace_trailing_separator_and_uppercase_email():
-    accounts = parse_seed_accounts("  A@Example.com|pw|admin  ;  b@example.com|pw ; ")
+def test_only_superadmin_filled_skips_admin():
+    accounts = accounts_from_settings(
+        _cfg(SUPERADMIN_EMAIL="super@example.com", SUPERADMIN_PASSWORD="pw")
+    )
 
-    assert [a.email for a in accounts] == ["a@example.com", "b@example.com"]
-
-
-@pytest.mark.parametrize(
-    "raw",
-    [
-        "a@example.com|pw|bukanrole",  # role tidak dikenal
-        "a@example.com",  # password kosong
-        "|pw|admin",  # email kosong
-        "a@example.com|pw|admin|Nama|kelebihan",  # kebanyakan field
-        "a@example.com|pw;A@example.com|pw2",  # email duplikat (beda case)
-    ],
-)
-def test_rejects_malformed_entries(raw):
-    with pytest.raises(SeedConfigError):
-        parse_seed_accounts(raw)
+    assert [a.role for a in accounts] == [UserRole.superadmin]
 
 
-@pytest.mark.parametrize("raw", ["", "   ", " ; "])
-def test_blank_input_yields_no_accounts(raw):
-    assert parse_seed_accounts(raw) == []
+def test_strips_whitespace_and_lowercases_email():
+    (account,) = accounts_from_settings(
+        _cfg(ADMIN_EMAIL="  Admin@Example.COM ", ADMIN_PASSWORD="  pw  ")
+    )
+
+    assert account.email == "admin@example.com"
+    assert account.password == "pw"
+
+
+def test_half_filled_pair_is_skipped_not_fatal(capsys):
+    accounts = accounts_from_settings(
+        _cfg(
+            SUPERADMIN_EMAIL="super@example.com",  # password lupa diisi
+            ADMIN_EMAIL="admin@example.com",
+            ADMIN_PASSWORD="pw",
+        )
+    )
+
+    assert [a.role for a in accounts] == [UserRole.admin]
+    assert "SUPERADMIN dilewati" in capsys.readouterr().err
+
+
+def test_password_may_contain_any_character():
+    (account,) = accounts_from_settings(
+        _cfg(ADMIN_EMAIL="admin@example.com", ADMIN_PASSWORD="p|a;ss w0rd")
+    )
+
+    assert account.password == "p|a;ss w0rd"
+
+
+def test_same_email_for_both_roles_superadmin_wins(db_session):
+    accounts = accounts_from_settings(
+        _cfg(
+            SUPERADMIN_EMAIL="same@example.com",
+            SUPERADMIN_PASSWORD="pw",
+            ADMIN_EMAIL="same@example.com",
+            ADMIN_PASSWORD="pw",
+        )
+    )
+
+    seed_accounts(db_session, accounts)
+
+    user = db_session.query(User).filter(User.email == "same@example.com").one()
+    assert user.role == UserRole.superadmin
 
 
 # --- seeding -------------------------------------------------------------

@@ -124,10 +124,12 @@ HF_TOKEN=hf_...             # dari huggingface.co, untuk download model pyannote
 ```
 > Untuk `HF_TOKEN`: daftar di [huggingface.co](https://huggingface.co) → Settings → Access Tokens, lalu accept license model di [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) dan [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0).
 
-Sekalian atur akun admin pertama lewat `SEED_ACCOUNTS` di `.env` (opsional tapi disarankan — tanpa ini belum ada satu pun akun yang bisa buka halaman `/admin`):
+Sekalian atur akun admin pertama di `.env` (opsional tapi disarankan — tanpa ini belum ada satu pun akun yang bisa buka halaman `/admin`):
 ```env
-# format: email|password|role|nama — satu baris, antar akun dipisah ';'
-SEED_ACCOUNTS=super@kioku.test|ganti-password-ini|superadmin|Super Admin;admin@kioku.test|ganti-password-ini|admin|Admin Kampus
+SUPERADMIN_EMAIL=super@kioku.test
+SUPERADMIN_PASSWORD=ganti-password-ini
+ADMIN_EMAIL=admin@kioku.test
+ADMIN_PASSWORD=ganti-password-ini
 ```
 
 Lalu jalankan:
@@ -136,16 +138,17 @@ make up
 ```
 > Tanpa `make`? `cp .env.example .env` lalu `docker compose up -d`.
 
-Buka **http://localhost:3000** dan login pakai akun dari `SEED_ACCOUNTS` di atas.
+Buka **http://localhost:3000** dan login pakai akun `SUPERADMIN_*` / `ADMIN_*` di atas.
 
 Migrasi database dan seed akun admin jalan otomatis tiap container backend-api start, jadi `make up` saja sudah cukup — baik untuk run pertama maupun run-run berikutnya, termasuk setelah `make down-v`.
 
-Soal `SEED_ACCOUNTS`:
+Soal akun admin otomatis:
+- Isi email **dan** password-nya. Kalau salah satu kosong, pasangan itu dilewati. Kosong semua = tidak ada akun yang dibuat.
 - Aman dijalankan berulang: akun yang emailnya sudah ada **tidak pernah ditimpa** password maupun namanya.
 - Kalau role akun yang sudah ada lebih rendah dari yang ditulis di sini, rolenya **dinaikkan**. Ini cara paling gampang menjadikan akun yang sudah terlanjur register sebagai `user` jadi superadmin.
 - Seeder tidak pernah **menurunkan** role — untuk itu pakai halaman `/admin/users`.
 - Ganti isinya cukup `docker compose up -d backend-api` (restart), tidak perlu rebuild.
-- Password tidak boleh mengandung karakter `|` atau `;`. Untuk production, kosongkan `SEED_ACCOUNTS` atau minimal jangan commit `.env`.
+- Untuk production, kosongkan variabel-variabelnya atau minimal pakai password acak, dan jangan commit `.env`.
 
 | Service | URL |
 |---|---|

@@ -45,9 +45,11 @@ class Settings(BaseSettings):
     CHECKIN_TOKEN_EXPIRE_HOURS: int = 24
 
     # Akun admin/superadmin yang dibuat otomatis saat backend-api start.
-    # Format satu baris: "email|password|role|nama", antar akun dipisah ';'.
-    # Kosong = seeder no-op. Lihat services/seed.py untuk aturan idempotensinya.
-    SEED_ACCOUNTS: str = ""
+    # Kosong = dilewati. Lihat services/seed.py untuk aturan idempotensinya.
+    SUPERADMIN_EMAIL: str = ""
+    SUPERADMIN_PASSWORD: str = ""
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD: str = ""
 
     # Google SSO
     GOOGLE_CLIENT_ID: str = ""

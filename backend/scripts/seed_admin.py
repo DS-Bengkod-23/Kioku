@@ -1,6 +1,6 @@
 """Bootstrap the first superadmin account, manually.
 
-Umumnya tidak perlu lagi: `SEED_ACCOUNTS` di .env sudah bikin akun admin/superadmin
+Umumnya tidak perlu lagi: `SUPERADMIN_*` / `ADMIN_*` di .env sudah bikin akun admin/superadmin
 otomatis tiap backend-api start (lihat app/services/seed.py). Script ini disimpan
 untuk kasus one-off — bikin superadmin tanpa menaruh passwordnya di .env:
 

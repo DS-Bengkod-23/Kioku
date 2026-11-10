@@ -1,15 +1,13 @@
-"""Seeder akun admin/superadmin dari env `SEED_ACCOUNTS`.
+"""Seeder akun admin & superadmin dari env.
 
 Dijalankan otomatis oleh entrypoint backend-api setiap container start (lihat
 `backend/Dockerfile.api`), sesudah `alembic upgrade head` dan sebelum uvicorn —
 jadi tidak perlu lagi `docker compose exec ... scripts/seed_admin.py` manual.
 
-Format `SEED_ACCOUNTS` (satu baris, akun dipisah `;`, field dipisah `|`):
+Env yang dipakai (semuanya opsional, kosong = dilewati):
 
-    email|password|role|nama
-
-`role` dan `nama` opsional (default `user`, dan nama diambil dari bagian depan
-email). Password TIDAK boleh mengandung `|` atau `;`.
+    SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD
+    ADMIN_EMAIL      / ADMIN_PASSWORD
 
 Idempotent, dan sengaja konservatif terhadap akun yang sudah ada:
   - email belum ada        -> akun dibuat
@@ -28,9 +26,6 @@ from app.models.audit_log import AuditAction, AuditLog
 from app.models.user import ROLE_RANK, AuthProvider, User, UserRole
 from app.services.auth import hash_password
 
-_ACCOUNT_SEPARATOR = ";"
-_FIELD_SEPARATOR = "|"
-
 
 @dataclass(frozen=True)
 class SeedAccount:
@@ -40,56 +35,32 @@ class SeedAccount:
     name: str
 
 
-class SeedConfigError(ValueError):
-    """SEED_ACCOUNTS salah format — dilempar sebelum menyentuh DB sama sekali."""
+def accounts_from_settings(cfg=settings) -> list[SeedAccount]:
+    """Bangun daftar akun dari env. Email + password harus terisi dua-duanya;
+    kalau hanya salah satu, pasangan itu dilewati dengan peringatan (bukan error)."""
+    pairs = [
+        # superadmin duluan: kalau email-nya sama dengan admin, role tertinggi yang menang
+        ("SUPERADMIN", cfg.SUPERADMIN_EMAIL, cfg.SUPERADMIN_PASSWORD, UserRole.superadmin, "Super Admin"),
+        ("ADMIN", cfg.ADMIN_EMAIL, cfg.ADMIN_PASSWORD, UserRole.admin, "Admin"),
+    ]
 
-
-def parse_seed_accounts(raw: str) -> list[SeedAccount]:
     accounts: list[SeedAccount] = []
-    seen_emails: set[str] = set()
+    for prefix, email, password, role, name in pairs:
+        email = email.strip().lower()
+        password = password.strip()
 
-    for index, chunk in enumerate(raw.split(_ACCOUNT_SEPARATOR), start=1):
-        entry = chunk.strip()
-        if not entry:
-            continue  # toleransi trailing ';' atau spasi antar entri
-
-        fields = [field.strip() for field in entry.split(_FIELD_SEPARATOR)]
-        if len(fields) > 4:
-            raise SeedConfigError(
-                f"SEED_ACCOUNTS entri #{index}: kebanyakan field "
-                f"(dapat {len(fields)}, maksimal 4). Format: email|password|role|nama"
-            )
-
-        fields += [""] * (4 - len(fields))
-        email, password, role_raw, name = fields
+        if not email and not password:
+            continue  # tidak diisi, memang tidak ingin di-seed
 
         if not email or not password:
-            raise SeedConfigError(
-                f"SEED_ACCOUNTS entri #{index}: email dan password wajib diisi. "
-                "Format: email|password|role|nama"
+            print(
+                f"[seed] {prefix} dilewati: {prefix}_EMAIL dan {prefix}_PASSWORD "
+                "harus diisi dua-duanya.",
+                file=sys.stderr,
             )
+            continue
 
-        email = email.lower()
-        if email in seen_emails:
-            raise SeedConfigError(f"SEED_ACCOUNTS: email '{email}' muncul lebih dari sekali.")
-        seen_emails.add(email)
-
-        try:
-            role = UserRole(role_raw) if role_raw else UserRole.user
-        except ValueError:
-            valid = ", ".join(r.value for r in UserRole)
-            raise SeedConfigError(
-                f"SEED_ACCOUNTS entri #{index}: role '{role_raw}' tidak dikenal (pilihan: {valid})."
-            ) from None
-
-        accounts.append(
-            SeedAccount(
-                email=email,
-                password=password,
-                role=role,
-                name=name or email.split("@")[0],
-            )
-        )
+        accounts.append(SeedAccount(email=email, password=password, role=role, name=name))
 
     return accounts
 
@@ -128,7 +99,7 @@ def seed_accounts(db: Session, accounts: list[SeedAccount]) -> None:
                 target_type="user",
                 target_id=existing.id,
                 reason=(
-                    f"auto-seed SEED_ACCOUNTS: role changed from "
+                    f"auto-seed from env: role changed from "
                     f"{old_role.value} to {account.role.value}"
                 ),
             )
@@ -141,12 +112,11 @@ def seed_accounts(db: Session, accounts: list[SeedAccount]) -> None:
 
 
 def run_seed_from_settings() -> None:
-    raw = settings.SEED_ACCOUNTS.strip()
-    if not raw:
-        print("[seed] SEED_ACCOUNTS kosong — tidak ada akun yang di-seed.")
+    accounts = accounts_from_settings()
+    if not accounts:
+        print("[seed] SUPERADMIN_*/ADMIN_* kosong — tidak ada akun yang di-seed.")
         return
 
-    accounts = parse_seed_accounts(raw)
     db = SessionLocal()
     try:
         seed_accounts(db, accounts)
@@ -157,10 +127,6 @@ def run_seed_from_settings() -> None:
 def main() -> None:
     try:
         run_seed_from_settings()
-    except SeedConfigError as exc:
-        # Salah ketik di .env tidak boleh bikin API gagal start — cukup diteriakin
-        # di log, biar sisa aplikasi tetap jalan normal.
-        print(f"[seed] DILEWATI karena konfigurasi tidak valid: {exc}", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001 — seeder tidak boleh memblokir startup
         print(f"[seed] DILEWATI karena error tak terduga: {exc!r}", file=sys.stderr)
 
