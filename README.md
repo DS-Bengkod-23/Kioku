@@ -4,8 +4,6 @@
   <img src="assets/LogoApp.png" alt="Kioku Logo" width="150">
 </p>
 
-# Kioku
-
 
 > Your meeting companion. Auto-transcribe, summarize, and distribute notulen — self-hosted infrastructure, cloud LLM for transcription/summarization.
 
