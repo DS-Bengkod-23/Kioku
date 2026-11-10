@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # Provider LLM aktif untuk transcribe + summary/action item extraction.
     # Pilihan: 'openai' atau 'gemini'. Ganti nilai ini di .env lalu rebuild+restart
     # celery-worker untuk pindah provider tanpa ubah kode.
-    LLM_PROVIDER: str = "openai"
+    LLM_PROVIDER: str = "gemini"
 
     # Gemini (dipakai untuk transcribe, summary, dan action item extraction kalau LLM_PROVIDER=gemini)
     GEMINI_API_KEY: str = ""
@@ -78,10 +78,38 @@ class Settings(BaseSettings):
     # Hugging Face
     HF_TOKEN: str = ""
 
+    # Timeout panggilan ke OpenAI/Gemini (detik). Transcribe lebih longgar karena
+    # request-nya membawa file audio; extract cuma teks.
+    LLM_TRANSCRIBE_TIMEOUT_SECONDS: int = 300
+    LLM_EXTRACT_TIMEOUT_SECONDS: int = 120
+
+    # Celery pipeline pemrosesan rekaman. Batas waktu sengaja longgar supaya audio
+    # 2 jam yang sah tidak terbunuh: soft limit bisa ditangkap untuk cleanup, hard
+    # limit membunuh task.
+    PIPELINE_MAX_RETRIES: int = 3
+    PIPELINE_RETRY_BACKOFF_SECONDS: int = 60
+    PIPELINE_RETRY_BACKOFF_MAX_SECONDS: int = 600
+    PIPELINE_SOFT_TIME_LIMIT_SECONDS: int = 10800
+    PIPELINE_TIME_LIMIT_SECONDS: int = 12600
+
     # File upload
     MAX_UPLOAD_SIZE_MB: int = 200
     MAX_AUDIO_DURATION_HOURS: int = 2
     ALLOWED_AUDIO_FORMATS: str = "mp3,mp4,wav,m4a"
+    # Hard-cap endpoint transkripsi OpenAI (berlaku endpoint-wide, bukan per-model).
+    # Hanya dipakai kalau LLM_PROVIDER=openai; ubah kalau OpenAI mengubah batasnya.
+    OPENAI_TRANSCRIBE_MAX_UPLOAD_MB: int = 25
+    AVATAR_MAX_SIZE_MB: int = 5
+
+    # Google Calendar sync (timeout HTTP dan retry task Celery-nya)
+    CALENDAR_API_TIMEOUT_SECONDS: int = 10
+    CALENDAR_SYNC_MAX_RETRIES: int = 3
+    CALENDAR_SYNC_RETRY_BACKOFF_SECONDS: int = 30
+    CALENDAR_SYNC_RETRY_BACKOFF_MAX_SECONDS: int = 300
+
+    # Polling status rekaman di frontend (dikirim lewat GET /config)
+    RECORDING_POLL_INTERVAL_SECONDS: int = 3
+    RECORDING_POLL_MAX_MINUTES: int = 60
 
     # App
     APP_ENV: str = "development"

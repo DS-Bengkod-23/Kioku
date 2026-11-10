@@ -47,7 +47,7 @@ def handle_oauth_callback(db: Session, code: str, state: str) -> None:
             "redirect_uri": settings.GOOGLE_CALENDAR_REDIRECT_URI,
             "grant_type": "authorization_code",
         },
-        timeout=10,
+        timeout=settings.CALENDAR_API_TIMEOUT_SECONDS,
     )
     resp.raise_for_status()
     token_data = resp.json()
@@ -109,7 +109,7 @@ def get_valid_access_token(db: Session, cred: GoogleCalendarCredential) -> str |
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "grant_type": "refresh_token",
         },
-        timeout=10,
+        timeout=settings.CALENDAR_API_TIMEOUT_SECONDS,
     )
     if resp.status_code == 400 and resp.json().get("error") == "invalid_grant":
         logger.warning("Google Calendar refresh token invalid_grant untuk user %s, marking disconnected", cred.user_id)

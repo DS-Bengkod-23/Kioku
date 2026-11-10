@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AppConfig } from "@/types";
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1",
@@ -193,6 +194,11 @@ export const uploadRecording = async (
     },
     headers: { "Content-Type": undefined },
   });
+  return response.data;
+};
+
+export const getAppConfig = async (): Promise<AppConfig> => {
+  const response = await api.get("/config");
   return response.data;
 };
 

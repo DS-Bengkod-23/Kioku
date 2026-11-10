@@ -18,6 +18,7 @@ import {
 import { useProfile, useUpdateProfile, useUploadAvatar } from "@/hooks/useProfile";
 import { extractApiError } from "@/lib/utils";
 import { useCalendarStatus, useDisconnectCalendar } from "@/hooks/useCalendar";
+import { useAppConfig } from "@/hooks/useAppConfig";
 import { getGoogleCalendarConnectUrl } from "@/lib/api";
 
 interface ProfileFormState {
@@ -62,6 +63,7 @@ export default function ProfilePage() {
     const { data: profile, isLoading, isError } = useProfile();
     const { mutate: updateProfile, isPending: isSaving } = useUpdateProfile();
     const { mutate: uploadAvatar, isPending: isUploadingAvatar } = useUploadAvatar();
+    const { data: appConfig } = useAppConfig();
     const { data: calendarStatus, isLoading: isCalendarLoading } = useCalendarStatus();
     const { mutate: disconnectCalendar, isPending: isDisconnecting } = useDisconnectCalendar();
     const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -75,9 +77,6 @@ export default function ProfilePage() {
         });
     };
 
-    const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB — belum ada batas resmi dari BE,
-    // lihat plan/handoff-avatar-rsvp.md, ini cuma jaga-jaga sisi FE.
-
     const handleAvatarClick = () => avatarInputRef.current?.click();
 
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,8 +87,9 @@ export default function ProfilePage() {
             toast.error("File harus berupa gambar.");
             return;
         }
-        if (file.size > MAX_AVATAR_SIZE) {
-            toast.error("Ukuran gambar maksimal 5MB.");
+        // Batas dari .env lewat GET /config; kalau belum terambil, backend yang menolak.
+        if (appConfig && file.size > appConfig.avatar_max_size_mb * 1024 * 1024) {
+            toast.error(`Ukuran gambar maksimal ${appConfig.avatar_max_size_mb}MB.`);
             return;
         }
         uploadAvatar(file, {

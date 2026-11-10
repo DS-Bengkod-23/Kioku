@@ -3,19 +3,17 @@
 import React, { useRef } from "react";
 import { UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { useAppConfig } from "@/hooks/useAppConfig";
 
 interface UploadZoneProps {
   onUpload: (file: File) => void;
 }
 
-const ALLOWED_EXTENSIONS = ["mp3", "mp4", "wav", "m4a"];
-// 200MB = batas atas aplikasi (lihat CLAUDE.md). Batas 25MB khusus provider OpenAI
-// tetap divalidasi ulang di backend (recording.py) dengan pesan yang lebih spesifik,
-// karena provider aktif bukan info yang tersedia di frontend.
-const MAX_SIZE_BYTES = 200 * 1024 * 1024;
-
 export default function UploadZone({ onUpload }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Format & batas ukuran datang dari .env lewat GET /config. Selama belum terambil,
+  // pengecekan ukuran/format di sini dilewati — backend tetap menolak file yang tidak valid.
+  const { data: config } = useAppConfig();
 
   // Atribut `accept` pada <input type="file"> cuma hint untuk file picker browser
   // dan sepenuhnya diabaikan oleh drag-and-drop — tanpa validasi eksplisit ini,
@@ -23,16 +21,19 @@ export default function UploadZone({ onUpload }: UploadZoneProps) {
   // ditolak backend menit kemudian.
   const validateAndUpload = (file: File) => {
     const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      toast.error(`Format file .${ext || "?"} tidak didukung. Gunakan MP3, MP4, WAV, atau M4A.`);
+    if (config && !config.allowed_audio_formats.includes(ext)) {
+      const formats = config.allowed_audio_formats.map((f) => f.toUpperCase()).join(", ");
+      toast.error(`Format file .${ext || "?"} tidak didukung. Gunakan ${formats}.`);
       return;
     }
     if (file.size === 0) {
       toast.error("File kosong (0 byte). Pilih file rekaman yang valid.");
       return;
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      toast.error(`File terlalu besar (${(file.size / 1024 / 1024).toFixed(1)}MB). Maksimum 200MB.`);
+    if (config && file.size > config.max_upload_size_mb * 1024 * 1024) {
+      toast.error(
+        `File terlalu besar (${(file.size / 1024 / 1024).toFixed(1)}MB). Maksimum ${config.max_upload_size_mb}MB.`
+      );
       return;
     }
     onUpload(file);
@@ -57,7 +58,9 @@ export default function UploadZone({ onUpload }: UploadZoneProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".mp3,.mp4,.wav,.m4a,audio/*"
+        accept={
+          config ? `${config.allowed_audio_formats.map((f) => `.${f}`).join(",")},audio/*` : "audio/*"
+        }
         className="hidden"
         onChange={handleFileChange}
       />

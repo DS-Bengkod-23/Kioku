@@ -24,11 +24,6 @@ _AUDIO_CONTENT_TYPE_BY_EXT = {
     "m4a": "audio/x-m4a",
 }
 
-# OpenAI /v1/audio/transcriptions hard-cap 25MB, berlaku endpoint-wide untuk
-# whisper-1/gpt-4o-transcribe/gpt-4o-mini-transcribe — bukan per-model, tidak
-# bisa diubah lewat konfigurasi. Dicek di sini supaya gagalnya kelihatan saat
-# upload (backend-api), bukan menit kemudian di dalam Celery.
-_OPENAI_TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024
 _MUTAGEN_TYPE_BY_EXT = {"mp3": MP3, "mp4": MP4, "m4a": MP4, "wav": WAVE}
 
 # Status di mana Celery task masih aktif memproses recording ini. Upload ulang
@@ -118,11 +113,13 @@ async def upload_recording(
             detail=f"File exceeds maximum size of {settings.MAX_UPLOAD_SIZE_MB}MB",
         )
 
-    if settings.LLM_PROVIDER == "openai" and size > _OPENAI_TRANSCRIBE_MAX_BYTES:
+    # Dicek di sini supaya gagalnya kelihatan saat upload (backend-api), bukan
+    # menit kemudian di dalam Celery.
+    if settings.LLM_PROVIDER == "openai" and size > settings.OPENAI_TRANSCRIBE_MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(
             status_code=413,
             detail=f"File terlalu besar untuk provider OpenAI (maks. "
-                    f"{_OPENAI_TRANSCRIBE_MAX_BYTES // (1024 * 1024)}MB). Gunakan file "
+                    f"{settings.OPENAI_TRANSCRIBE_MAX_UPLOAD_MB}MB). Gunakan file "
                     f"yang lebih kecil, atau hubungi admin untuk beralih ke provider Gemini.",
         )
 

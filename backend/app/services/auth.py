@@ -21,7 +21,6 @@ from app.services import storage
 # memastikan isi file benar-benar gambar sesuai klaim ekstensinya, bukan cuma
 # percaya nama file dari client.
 _AVATAR_FORMAT_BY_EXT = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG", "webp": "WEBP"}
-_MAX_AVATAR_SIZE_MB = 5
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer = HTTPBearer()
@@ -224,8 +223,8 @@ async def upload_avatar(db: Session, user: User, file: UploadFile) -> User:
         )
 
     file_bytes = await file.read()
-    if len(file_bytes) > _MAX_AVATAR_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=400, detail=f"Ukuran file melebihi {_MAX_AVATAR_SIZE_MB}MB")
+    if len(file_bytes) > settings.AVATAR_MAX_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"Ukuran file melebihi {settings.AVATAR_MAX_SIZE_MB}MB")
 
     try:
         image = Image.open(io.BytesIO(file_bytes))

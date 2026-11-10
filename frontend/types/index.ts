@@ -240,3 +240,12 @@ export interface AuditLogResponse {
   reason: string | null;
   created_at: string;
 }
+
+// Setting dari .env yang dikirim backend lewat GET /config (lihat backend/app/schemas/config.py).
+export interface AppConfig {
+  max_upload_size_mb: number;
+  allowed_audio_formats: string[];
+  avatar_max_size_mb: number;
+  recording_poll_interval_seconds: number;
+  recording_poll_max_minutes: number;
+}
