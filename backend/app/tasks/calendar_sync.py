@@ -47,7 +47,8 @@ def _sync_one_participant(
 
     if sync_event:
         resp = requests.patch(
-            f"{EVENTS_BASE_URL}/{sync_event.google_event_id}", json=body, headers=headers, timeout=10
+            f"{EVENTS_BASE_URL}/{sync_event.google_event_id}", json=body, headers=headers,
+            timeout=settings.CALENDAR_API_TIMEOUT_SECONDS,
         )
         if resp.status_code == 404:
             # User menghapus event ini manual dari Google Calendar-nya sendiri --
@@ -59,14 +60,21 @@ def _sync_one_participant(
             resp.raise_for_status()
 
     if not sync_event:
-        resp = requests.post(EVENTS_BASE_URL, json=body, headers=headers, timeout=10)
+        resp = requests.post(
+            EVENTS_BASE_URL, json=body, headers=headers, timeout=settings.CALENDAR_API_TIMEOUT_SECONDS
+        )
         resp.raise_for_status()
         db.add(CalendarSyncEvent(meeting_participant_id=participant.id, google_event_id=resp.json()["id"]))
 
     db.commit()
 
 
-@celery_app.task(bind=True, max_retries=3, retry_backoff=30, retry_backoff_max=300)
+@celery_app.task(
+    bind=True,
+    max_retries=settings.CALENDAR_SYNC_MAX_RETRIES,
+    retry_backoff=settings.CALENDAR_SYNC_RETRY_BACKOFF_SECONDS,
+    retry_backoff_max=settings.CALENDAR_SYNC_RETRY_BACKOFF_MAX_SECONDS,
+)
 def sync_meeting_calendar_task(self, meeting_id: str):
     """Upsert event Calendar untuk semua participant meeting yang sudah connect.
     Dipanggil setelah create_meeting()/update_meeting() commit -- meng-cover
@@ -106,7 +114,12 @@ def sync_meeting_calendar_task(self, meeting_id: str):
         db.close()
 
 
-@celery_app.task(bind=True, max_retries=3, retry_backoff=30, retry_backoff_max=300)
+@celery_app.task(
+    bind=True,
+    max_retries=settings.CALENDAR_SYNC_MAX_RETRIES,
+    retry_backoff=settings.CALENDAR_SYNC_RETRY_BACKOFF_SECONDS,
+    retry_backoff_max=settings.CALENDAR_SYNC_RETRY_BACKOFF_MAX_SECONDS,
+)
 def delete_meeting_calendar_events_task(self, events: list[dict]):
     """events: [{"user_id": str, "google_event_id": str}, ...] -- di-snapshot oleh
     delete_meeting() SEBELUM meeting row (dan MeetingParticipant-nya) dihapus,
@@ -129,7 +142,7 @@ def delete_meeting_calendar_events_task(self, events: list[dict]):
                 resp = requests.delete(
                     f"{EVENTS_BASE_URL}/{item['google_event_id']}",
                     headers={"Authorization": f"Bearer {access_token}"},
-                    timeout=10,
+                    timeout=settings.CALENDAR_API_TIMEOUT_SECONDS,
                 )
                 if resp.status_code not in (200, 204, 404, 410):
                     resp.raise_for_status()

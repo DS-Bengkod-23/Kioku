@@ -1,0 +1,10 @@
+# OPSIONAL — diarization lokal (siapa bicara kapan) via pyannote.audio.
+# Hanya dipakai kalau LLM_PROVIDER bukan 'gemini' (Gemini melabeli speaker sendiri).
+# Di Docker, file ini hanya di-install kalau INSTALL_LOCAL_DIARIZATION=true di .env
+# (lihat backend/Dockerfile.worker). Untuk dev tanpa Docker:
+#   pip install -r ml/requirements-diarization.txt
+
+pyannote.audio>=3.1.0
+torch>=2.0.0
+torchaudio>=2.0.0
+--extra-index-url https://download.pytorch.org/whl/cpu

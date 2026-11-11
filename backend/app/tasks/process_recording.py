@@ -21,6 +21,20 @@ from app.services.pdf import generate_notulen_pdf
 
 logger = logging.getLogger(__name__)
 
+# Setting yang dibaca modul ml/. Butuh setting baru di ML? Tambah namanya di sini
+# (dan di config.py + .env.example), tidak perlu mengubah apa pun di tempat lain.
+_ML_ENV_KEYS = (
+    "HF_TOKEN",
+    "LLM_PROVIDER",
+    "GEMINI_API_KEY",
+    "GEMINI_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_TRANSCRIBE_MODEL",
+    "OPENAI_MODEL",
+    "LLM_TRANSCRIBE_TIMEOUT_SECONDS",
+    "LLM_EXTRACT_TIMEOUT_SECONDS",
+)
+
 
 class MLPipelineError(Exception):
     """Raised when the ML pipeline itself fails, so Celery records the task as
@@ -44,15 +58,16 @@ def _set_step(db, recording: Recording, step: str, status_after: ProcessingStatu
 
 @celery_app.task(
     bind=True,
-    max_retries=3,
-    retry_backoff=60,
-    retry_backoff_max=600,
+    max_retries=settings.PIPELINE_MAX_RETRIES,
+    retry_backoff=settings.PIPELINE_RETRY_BACKOFF_SECONDS,
+    retry_backoff_max=settings.PIPELINE_RETRY_BACKOFF_MAX_SECONDS,
     # Tanpa batas ini, koneksi yang hang (network stall ke OpenAI/Gemini/HF, bukan
-    # error — cuma diam) bisa memblokir worker tanpa batas waktu. Batasnya longgar
-    # (bukan ketat) supaya tidak membunuh audio 2 jam yang memang sah masih diproses:
-    # soft (SoftTimeLimitExceeded, bisa ditangkap untuk cleanup) di 3 jam, hard di 3.5 jam.
-    soft_time_limit=10800,
-    time_limit=12600,
+    # error — cuma diam) bisa memblokir worker tanpa batas waktu. Nilai default
+    # (3 jam soft / 3.5 jam hard) sengaja longgar supaya tidak membunuh audio 2 jam
+    # yang memang sah masih diproses. Soft = SoftTimeLimitExceeded (bisa ditangkap
+    # untuk cleanup), hard = task dibunuh.
+    soft_time_limit=settings.PIPELINE_SOFT_TIME_LIMIT_SECONDS,
+    time_limit=settings.PIPELINE_TIME_LIMIT_SECONDS,
 )
 def process_recording_task(self, recording_id: str, meeting_id: str):
     # ml.* di-import lazy (bukan level-modul) karena module ini juga di-import oleh
@@ -72,14 +87,10 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             logger.error("Recording %s not found", recording_id)
             return
 
-        # Propagate pydantic settings → os.environ so ML modules can use os.getenv()
-        os.environ.setdefault("HF_TOKEN", settings.HF_TOKEN)
-        os.environ.setdefault("LLM_PROVIDER", settings.LLM_PROVIDER)
-        os.environ.setdefault("GEMINI_API_KEY", settings.GEMINI_API_KEY)
-        os.environ.setdefault("GEMINI_MODEL", settings.GEMINI_MODEL)
-        os.environ.setdefault("OPENAI_API_KEY", settings.OPENAI_API_KEY)
-        os.environ.setdefault("OPENAI_TRANSCRIBE_MODEL", settings.OPENAI_TRANSCRIBE_MODEL)
-        os.environ.setdefault("OPENAI_MODEL", settings.OPENAI_MODEL)
+        # ml/ tidak boleh meng-import backend (lihat ml/env.py), jadi settings-nya
+        # disalin ke os.environ supaya ML bisa membacanya lewat os.getenv().
+        for name in _ML_ENV_KEYS:
+            os.environ.setdefault(name, str(getattr(settings, name)))
 
         # Step 1: mark upload done, start transcribing
         _set_step(db, recording, "upload", ProcessingStatus.transcribing)

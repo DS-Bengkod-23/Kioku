@@ -14,13 +14,19 @@ try:
     from .errors import PermanentMLError
 except ImportError:
     from errors import PermanentMLError
+try:
+    from .env import require_env
+except ImportError:
+    from env import require_env
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-# Timeout HTTP untuk panggilan OpenAI/Gemini — request di sini teks saja (tanpa
-# audio), jadi lebih ketat dari ml/transcribe.py. Tanpa ini, koneksi yang hang
-# bisa memblokir worker Celery tanpa batas waktu.
-_LLM_TIMEOUT_SECONDS = 120
+
+def _llm_timeout_seconds() -> int:
+    # Timeout HTTP untuk panggilan OpenAI/Gemini — tanpa ini, koneksi yang hang
+    # bisa memblokir worker Celery tanpa batas waktu. Nilainya dari
+    # LLM_EXTRACT_TIMEOUT_SECONDS di .env (request di sini teks saja, tanpa audio).
+    return int(require_env("LLM_EXTRACT_TIMEOUT_SECONDS"))
 
 
 def _load_prompt(name: str) -> str:
@@ -32,10 +38,10 @@ def _complete_openai(prompt: str) -> str:
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY tidak ditemukan di environment")
 
-    model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model_name = require_env("OPENAI_MODEL")
 
     try:
-        client = OpenAI(api_key=api_key, timeout=_LLM_TIMEOUT_SECONDS)
+        client = OpenAI(api_key=api_key, timeout=_llm_timeout_seconds())
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
@@ -53,12 +59,12 @@ def _complete_gemini(prompt: str) -> str:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY tidak ditemukan di environment")
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    model_name = require_env("GEMINI_MODEL")
 
     try:
         client = genai.Client(
             api_key=api_key,
-            http_options=genai_types.HttpOptions(timeout=_LLM_TIMEOUT_SECONDS * 1000),
+            http_options=genai_types.HttpOptions(timeout=_llm_timeout_seconds() * 1000),
         )
         response = client.models.generate_content(
             model=model_name,
@@ -90,7 +96,7 @@ def _complete_gemini(prompt: str) -> str:
 
 
 def _complete(prompt: str) -> str:
-    provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    provider = require_env("LLM_PROVIDER").lower()
     if provider == "gemini":
         return _complete_gemini(prompt)
     return _complete_openai(prompt)

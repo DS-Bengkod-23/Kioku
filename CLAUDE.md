@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kioku is a self-hosted meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. Infrastructure (DB, storage, email) is self-hosted, and speaker diarization always runs locally via pyannote.audio — but transcription and summarization go through a cloud LLM API (OpenAI by default, Gemini optional; see "ML Pipeline Setup" below), so audio and transcript text are **not** kept fully on-machine.
+Kioku is a self-hosted meeting management app. It covers the full meeting lifecycle: scheduling → email invitations → attendance check-in → audio upload → ML transcription/summarization → notulen distribution. Infrastructure (DB, storage, email) is self-hosted. Transcription and summarization go through a cloud LLM API (Gemini by default, OpenAI optional; see "ML Pipeline Setup" below), so audio and transcript text are **not** kept fully on-machine. Speaker labels come from Gemini itself when `LLM_PROVIDER=gemini`; with other providers they come from optional local diarization via pyannote.audio (only installed when `INSTALL_LOCAL_DIARIZATION=true`).
 
 **Team:** Audi (Backend), Helena (Frontend), Azmi (ML)
 
@@ -101,10 +101,23 @@ cd frontend
 npx shadcn-ui@latest add <component-name>
 ```
 
+### Configuration — one place for every setting
+
+**Every tunable value lives in the root `.env`** (template: `.env.example`, which documents each setting). Never hardcode a limit, timeout, retry count, model name, polling interval or similar number in code, and never create another `.env` file (`backend/.env`, `frontend/.env.local`) — the backend only reads the root one.
+
+To add a new setting:
+1. Add the field (with its default) to `Settings` in `backend/app/config.py` — this is the only place a default may live.
+2. Document it in `.env.example` (`backend/tests/test_env_example.py` fails if you forget).
+3. Read it through `settings.X` in backend code.
+4. If `ml/` needs it: add the name to `_ML_ENV_KEYS` in `backend/app/tasks/process_recording.py`, and read it in ML with `require_env("X")` from `ml/env.py` (no defaults inside `ml/`; it must not import backend code).
+5. If the frontend needs it: add it to `PublicConfigResponse` (`schemas/config.py`) + `routers/config.py` + `AppConfig` in `frontend/types/index.ts`, and read it via `useAppConfig()`. `GET /api/v1/config` has no auth, so **never expose secrets there** (`test_public_config.py` pins the exact field list). Don't duplicate the value as a frontend constant.
+
+Apply a change: `docker compose up -d backend-api celery-worker celery-beat` (no rebuild). Only `NEXT_PUBLIC_*` values need `docker compose up -d --build frontend`, because Next.js inlines them at build time.
+
 ### ML Pipeline Setup
-Transcription, summary, and action item extraction run on a switchable LLM provider — **OpenAI** (default) or **Gemini**. Toggle via `LLM_PROVIDER` in `.env`, then `docker compose build celery-worker && docker compose up -d celery-worker` to apply:
+Transcription, summary, and action item extraction run on a switchable LLM provider — **Gemini** (default, what production runs) or **OpenAI**. Toggle via `LLM_PROVIDER` in `.env`, then `docker compose build celery-worker && docker compose up -d celery-worker` to apply:
 ```env
-LLM_PROVIDER=openai   # or 'gemini'
+LLM_PROVIDER=gemini   # or 'openai'
 
 OPENAI_API_KEY=...
 OPENAI_TRANSCRIBE_MODEL=whisper-1
@@ -113,7 +126,8 @@ OPENAI_MODEL=gpt-4o-mini
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.1-flash-lite
 ```
-`gemini-3.1-flash-lite` has a known upstream bug returning `500 INTERNAL` on any audio input (reported June 2026), which is why `openai` is the default for transcription. Diarization is unaffected by this toggle — it always runs locally via pyannote.audio regardless of `LLM_PROVIDER`.
+`gemini-3.1-flash-lite` had a reported upstream bug returning `500 INTERNAL` on audio input (June 2026); production currently runs it fine, but if audio transcription starts failing with that error, suspect the model first and try another `GEMINI_MODEL`. OpenAI is not used right now (its billing ran out), and `whisper-1` is scheduled to be retired by OpenAI on 2027-02-26. 
+**Diarization is provider-dependent and optional.** With `LLM_PROVIDER=gemini`, `diarize()` returns `[]` immediately (Gemini labels speakers in the transcription prompt) and torch/pyannote are never touched. With any other provider it needs local pyannote.audio, which is installed into the `celery-worker` image only when `INSTALL_LOCAL_DIARIZATION=true` (default `false`; packages in `ml/requirements-diarization.txt`). This is a **build-time** switch, not a runtime one: after changing it run `make build`. If a non-Gemini provider runs without it installed, the recording fails with a clear `PermanentMLError`, not a silent `SPEAKER_00`. It is the one setting that is *not* a field in `config.py` (it is a Docker build arg, passed via `docker-compose.yml`), but it is still documented in `.env.example`.
 
 ---
 
@@ -137,14 +151,14 @@ GEMINI_MODEL=gemini-3.1-flash-lite
 2. Backend saves file to MinIO, enqueues Celery task
 3. Celery worker calls ML pipeline in sequence:
    - `transcribe(audio_path)` → OpenAI Whisper API or Gemini API, depending on `LLM_PROVIDER`
-   - `diarize(audio_path)` → pyannote.audio (always local, unaffected by `LLM_PROVIDER`)
+   - `diarize(audio_path)` → skipped (`[]`) when `LLM_PROVIDER=gemini`; otherwise pyannote.audio, local, requires `INSTALL_LOCAL_DIARIZATION=true`
    - `merge_transcript_diarization(transcript, diarization)`
    - `extract_summary(transcript_text)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
    - `extract_action_items(transcript_text, participant_names)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
 4. Results saved to DB (Transcript, Summary, ActionItem tables)
 5. Email distributed to all participants automatically
 
-Frontend polls `GET /meetings/:id/recording/status` every 3 seconds until status is `completed` or `failed`.
+Frontend polls `GET /meetings/:id/recording/status` every `RECORDING_POLL_INTERVAL_SECONDS` (default 3) until status is `completed` or `failed`.
 
 **`ProcessingStatus` pipeline stages** (in order): `queued` → `transcribing` → `diarizing` → `extracting` → `sending_email` → `completed` | `failed`. Individual step completion is tracked in `recording.processing_steps` (JSONB). On failure, `recording.error_message` contains the reason.
 
@@ -152,7 +166,7 @@ Frontend polls `GET /meetings/:id/recording/status` every 3 seconds until status
 
 - `main.py` — FastAPI app, router registration
 - `worker.py` — Celery app instance
-- `config.py` — Settings loaded from `.env`
+- `config.py` — `Settings` loaded from the root `.env`; schema + defaults for every setting (see "Configuration" above)
 - `database.py` — SQLAlchemy session
 - `routers/` — HTTP endpoints (auth, meetings, recordings, checkin)
 - `models/` — SQLAlchemy ORM models (map 1:1 to DB tables)
@@ -162,6 +176,7 @@ Frontend polls `GET /meetings/:id/recording/status` every 3 seconds until status
 
 ### ML Structure (`ml/`)
 
+- `env.py` — `require_env(name)`: reads a setting from the environment, raises a clear error if missing (no defaults here)
 - `schemas.py` — Shared Pydantic types: `TranscriptResult`, `SummaryResult`, `ActionItem`, `TranscriptSegment`
 - `transcribe.py` — `transcribe(audio_path) -> TranscriptResult`
 - `diarize.py` — `diarize(audio_path) -> list[TranscriptSegment]`, `merge_transcript_diarization(...)`
@@ -266,8 +281,8 @@ Toggle the whole feature off via `GOOGLE_CALENDAR_SYNC_ENABLED=false` in `.env` 
 
 ## Storage
 
-- Dev: MinIO (local S3-compatible, docker compose)
+- Dev: MinIO (local S3-compatible, docker compose). The official `minio/minio` image was removed from Docker Hub (upstream community edition is archived), so compose uses a community build pinned by digest via `MINIO_IMAGE` (default `netvark/minio@sha256:…`). Keep a local copy with `docker save`; do not switch to `minio/minio` or an unpinned `:latest`.
 - Prod target: Cloudflare R2
 - Access via `services/storage.py` using boto3 S3 client
 
-Audio file limits: mp3/mp4/wav/m4a, max 200MB, max 2 hours.
+Audio file limits (defaults; change in `.env` via `ALLOWED_AUDIO_FORMATS`, `MAX_UPLOAD_SIZE_MB`, `MAX_AUDIO_DURATION_HOURS`): mp3/mp4/wav/m4a, max 200MB, max 2 hours.

@@ -1,9 +1,11 @@
 import os
 import subprocess
 import tempfile
-import torch
 import soundfile as sf
-from pyannote.audio import Pipeline
+# torch & pyannote.audio SENGAJA tidak di-import di level modul: keduanya opsional
+# (hanya terpasang kalau INSTALL_LOCAL_DIARIZATION=true saat build image, lihat
+# ml/requirements-diarization.txt), jadi jalur Gemini tidak boleh bergantung ke
+# keduanya cuma karena modul ini di-import.
 try:
     from .schemas import TranscriptResult, TranscriptSegment
 except ImportError:
@@ -12,11 +14,15 @@ try:
     from .errors import PermanentMLError
 except ImportError:
     from errors import PermanentMLError
+try:
+    from .env import require_env
+except ImportError:
+    from env import require_env
 
 _pipeline = None
 
 
-def _get_pipeline() -> Pipeline:
+def _get_pipeline():
     # Pipeline.from_pretrained() memuat beberapa sub-model — mahal untuk dijalankan
     # ulang di tiap panggilan diarize(), dan berisiko OOM kalau worker Celery
     # concurrency > 1 (beberapa copy model resident bersamaan). Cache sekali per
@@ -24,6 +30,8 @@ def _get_pipeline() -> Pipeline:
     # setelah panggilan pertamanya).
     global _pipeline
     if _pipeline is None:
+        from pyannote.audio import Pipeline  # noqa: PLC0415
+
         _pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1",
             token=os.getenv("HF_TOKEN"),
@@ -35,6 +43,8 @@ def _load_audio(audio_path: str):
     """Load audio as torch tensor + sample rate.
     Tries torchaudio first (Mac/Linux), falls back to ffmpeg+soundfile (Windows).
     """
+    import torch  # noqa: PLC0415
+
     try:
         import torchaudio
         return torchaudio.load(audio_path)
@@ -62,13 +72,25 @@ def diarize(audio_path: str) -> list[TranscriptSegment]:
     # langsung di prompt transkripsi (lihat _transcribe_gemini di transcribe.py) —
     # skip pyannote sepenuhnya di sini, jangan load model/HF_TOKEN/torch sama
     # sekali, supaya jalur Gemini murni tidak bergantung ke pyannote.
-    if os.getenv("LLM_PROVIDER", "openai").lower() == "gemini":
+    if require_env("LLM_PROVIDER").lower() == "gemini":
         return []
 
     # PermanentMLError (bukan FileNotFoundError polos) supaya Celery task tidak
     # buang 3x retry untuk error yang pasti gagal identik lagi.
     if not os.path.exists(audio_path):
         raise PermanentMLError(f"File audio tidak ditemukan: {audio_path}")
+
+    # Dicek di luar try di bawah supaya tidak terbungkus RuntimeError (yang di-retry
+    # Celery) — paket yang tidak terpasang tidak akan muncul sendiri di retry berikutnya.
+    try:
+        import torch  # noqa: F401, PLC0415
+        import pyannote.audio  # noqa: F401, PLC0415
+    except ImportError as e:
+        raise PermanentMLError(
+            "Diarization lokal (pyannote) tidak terpasang di image ini. Set "
+            "INSTALL_LOCAL_DIARIZATION=true di .env lalu jalankan `make build`, "
+            "atau pakai LLM_PROVIDER=gemini."
+        ) from e
 
     try:
         pipeline = _get_pipeline()

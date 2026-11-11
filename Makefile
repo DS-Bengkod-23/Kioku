@@ -6,7 +6,7 @@ init:
 		echo ".env sudah ada, tidak ditimpa."; \
 	else \
 		cp .env.example .env; \
-		echo ".env dibuat dari .env.example — isi OPENAI_API_KEY dan HF_TOKEN dulu sebelum 'make up'."; \
+		echo ".env dibuat dari .env.example — isi GEMINI_API_KEY dulu sebelum 'make up'."; \
 	fi
 
 # Menjalankan semua services

@@ -16,13 +16,19 @@ try:
     from .errors import PermanentMLError
 except ImportError:
     from errors import PermanentMLError
+try:
+    from .env import require_env
+except ImportError:
+    from env import require_env
 
 logger = logging.getLogger(__name__)
 
-# Timeout HTTP untuk panggilan OpenAI/Gemini — tanpa ini, koneksi yang hang
-# (bukan error, cuma diam) bisa memblokir worker Celery tanpa batas waktu.
-# Lebih longgar dari extract.py karena request di sini membawa file audio.
-_LLM_TIMEOUT_SECONDS = 300
+
+def _llm_timeout_seconds() -> int:
+    # Timeout HTTP untuk panggilan OpenAI/Gemini — tanpa ini, koneksi yang hang
+    # (bukan error, cuma diam) bisa memblokir worker Celery tanpa batas waktu.
+    # Nilainya dari LLM_TRANSCRIBE_TIMEOUT_SECONDS di .env.
+    return int(require_env("LLM_TRANSCRIBE_TIMEOUT_SECONDS"))
 
 
 # Ekstensi diaudio ini semua audio-only, tapi mimetypes stdlib nebak .mp4 sebagai
@@ -71,7 +77,7 @@ def _transcribe_openai(audio_path: str) -> TranscriptResult:
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY tidak ditemukan di environment")
 
-    model_name = os.getenv("OPENAI_TRANSCRIBE_MODEL", "whisper-1")
+    model_name = require_env("OPENAI_TRANSCRIBE_MODEL")
 
     try:
         ext = os.path.splitext(audio_path)[1].lower()
@@ -82,7 +88,7 @@ def _transcribe_openai(audio_path: str) -> TranscriptResult:
         # persis (MPEG-4 audio-only), jadi aman di-relabel biar diterima.
         send_ext = ".m4a" if ext == ".mp4" else ext
 
-        client = OpenAI(api_key=api_key, timeout=_LLM_TIMEOUT_SECONDS)
+        client = OpenAI(api_key=api_key, timeout=_llm_timeout_seconds())
         with open(audio_path, "rb") as f:
             file_bytes = f.read()
 
@@ -130,10 +136,10 @@ def _transcribe_gemini(audio_path: str) -> TranscriptResult:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY tidak ditemukan di environment")
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
+    model_name = require_env("GEMINI_MODEL")
     client = genai.Client(
         api_key=api_key,
-        http_options=types.HttpOptions(timeout=_LLM_TIMEOUT_SECONDS * 1000),
+        http_options=types.HttpOptions(timeout=_llm_timeout_seconds() * 1000),
     )
     audio_file = None
 
@@ -249,7 +255,7 @@ def transcribe(audio_path: str) -> TranscriptResult:
     if not audio_path.lower().endswith(supported):
         raise PermanentMLError(f"Format file tidak didukung: {audio_path}")
 
-    provider = os.getenv("LLM_PROVIDER", "openai").lower()
+    provider = require_env("LLM_PROVIDER").lower()
     if provider == "gemini":
         return _transcribe_gemini(audio_path)
     return _transcribe_openai(audio_path)

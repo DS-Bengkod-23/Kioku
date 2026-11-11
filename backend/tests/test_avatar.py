@@ -57,7 +57,7 @@ def test_upload_avatar_rejects_content_mismatched_extension(client, make_user, a
 
 
 def test_upload_avatar_rejects_oversized_file(client, make_user, auth_headers, monkeypatch):
-    monkeypatch.setattr("app.services.auth._MAX_AVATAR_SIZE_MB", 0)
+    monkeypatch.setattr("app.services.auth.settings.AVATAR_MAX_SIZE_MB", 0)
     user = make_user()
 
     response = client.post(
