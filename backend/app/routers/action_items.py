@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status as http_status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional
 import uuid
@@ -20,6 +21,15 @@ def update_action_item(
     current_user: User = Depends(get_current_user)
 ):
     return action_item_service.update_action_item(db, action_item_id=action_item_id, user_id=current_user.id, data=data)
+
+@router.delete("/action-items/{action_item_id}", status_code=http_status.HTTP_204_NO_CONTENT)
+def delete_action_item(
+    action_item_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    action_item_service.delete_action_item(db, action_item_id=action_item_id, user_id=current_user.id)
+    return Response(status_code=http_status.HTTP_204_NO_CONTENT)
 
 @router.get("/me/action-items", response_model=MyActionItemListResponse)
 def get_my_action_items(

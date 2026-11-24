@@ -6,6 +6,7 @@ peserta wajib melewatinya.
 import uuid
 from datetime import date, datetime, timezone
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models.action_item import ActionItem, ActionItemSource
@@ -13,7 +14,8 @@ from app.models.meeting import Meeting, NotulenStatus
 from app.models.notulen_version import NotulenVersion, NotulenVersionKind
 from app.models.participant import MeetingParticipant
 from app.models.summary import Summary
-from app.schemas.notulen import NotulenMeta
+from app.models.transcript import Transcript
+from app.schemas.notulen import NotulenMeta, SummaryUpdateRequest
 
 
 def is_notulen_visible(meeting: Meeting, user_id: uuid.UUID | None) -> bool:
@@ -135,3 +137,57 @@ def save_ai_results(
     meeting.notulen_status = NotulenStatus.draft
     meeting.notulen_edited_at = None
     return summary
+
+
+_ORGANIZER_ONLY = "Hanya organizer yang bisa mengedit notulen"
+
+
+def get_organizer_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    if meeting.organizer_id != user_id:
+        raise HTTPException(status_code=403, detail=_ORGANIZER_ONLY)
+    return meeting
+
+
+def update_summary(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data: SummaryUpdateRequest
+) -> Summary:
+    meeting = get_organizer_meeting(db, meeting_id, user_id)
+    summary = meeting.summary
+    if summary is None:
+        raise HTTPException(status_code=404, detail="Notulen belum tersedia")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(summary, field, value)
+    mark_edited(meeting)
+    db.commit()
+    db.refresh(summary)
+    return summary
+
+
+def rename_speakers(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, renames: dict[str, str]
+) -> Transcript:
+    meeting = get_organizer_meeting(db, meeting_id, user_id)
+    transcript = meeting.transcript
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="Notulen belum tersedia")
+
+    existing = {seg.get("speaker") for seg in transcript.segments}
+    for label in renames:
+        if label not in existing:
+            # Validasi semua label sebelum menulis apa pun: rename parsial tidak boleh tersimpan.
+            raise HTTPException(status_code=400, detail=f"Speaker '{label}' tidak ada di transkrip")
+
+    # List baru (bukan mutasi in-place) supaya SQLAlchemy mendeteksi perubahan JSONB.
+    # Rename tidak memanggil mark_edited: nama speaker tidak masuk email/PDF notulen.
+    transcript.segments = [
+        {**seg, "speaker": renames.get(seg.get("speaker"), seg.get("speaker"))}
+        for seg in transcript.segments
+    ]
+    db.commit()
+    db.refresh(transcript)
+    return transcript
