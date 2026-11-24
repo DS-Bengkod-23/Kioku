@@ -46,6 +46,10 @@ class ActionItem(Base):
     reminder_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Nilai dari AI yang gagal dicocokkan (assignee bukan peserta / tenggat bukan
+    # tanggal ISO). Disimpan supaya organizer melihat penanda "Perlu dicek".
+    ai_assignee_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_due_date_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     meeting: Mapped["Meeting"] = relationship("Meeting", back_populates="action_items")
     assignee_participant: Mapped["MeetingParticipant | None"] = relationship(

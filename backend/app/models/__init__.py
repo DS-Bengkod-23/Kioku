@@ -9,6 +9,7 @@ from app.models.summary import Summary
 from app.models.action_item import ActionItem
 from app.models.email_log import EmailLog
 from app.models.audit_log import AuditLog
+from app.models.notulen_version import NotulenVersion
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "ActionItem",
     "EmailLog",
     "AuditLog",
+    "NotulenVersion",
 ]
