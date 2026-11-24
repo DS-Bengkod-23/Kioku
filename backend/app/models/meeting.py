@@ -13,6 +13,11 @@ class MeetingStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class NotulenStatus(str, enum.Enum):
+    draft = "draft"
+    published = "published"
+
+
 class Meeting(Base):
     __tablename__ = "meetings"
 
@@ -46,6 +51,15 @@ class Meeting(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Status editorial notulen, terpisah dari Recording.processing_status supaya
+    # tidak hilang saat audio dihapus. NULL = belum ada notulen.
+    notulen_status: Mapped[NotulenStatus | None] = mapped_column(
+        SAEnum(NotulenStatus, name="notulenstatus"), nullable=True
+    )
+    notulen_edited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     organizer: Mapped["User"] = relationship(
         "User", back_populates="meetings_organized", foreign_keys=[organizer_id]
     )
@@ -66,4 +80,7 @@ class Meeting(Base):
     )
     email_logs: Mapped[list["EmailLog"]] = relationship(
         "EmailLog", back_populates="meeting", cascade="all, delete-orphan"
+    )
+    notulen_versions: Mapped[list["NotulenVersion"]] = relationship(
+        "NotulenVersion", back_populates="meeting", cascade="all, delete-orphan"
     )

@@ -9,6 +9,7 @@ from app.models.participant import MeetingParticipant, ParticipantRole
 from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.action_item import ActionItem, ActionItemStatus
 from app.models.summary import Summary as SummaryModel
+from app.services import notulen as notulen_service
 from app.services.pdf import generate_notulen_pdf
 from app.schemas.checkin import (
     CheckinPageResponse,
@@ -50,25 +51,34 @@ def get_checkin_info(db: Session, token: str) -> CheckinPageResponse:
         ps = meeting.recording.processing_status
         processing_status = ps.value if hasattr(ps, 'value') else ps
 
-    summary = None
-    summary_obj = db.query(SummaryModel).filter(SummaryModel.meeting_id == meeting.id).first()
-    if summary_obj:
-        summary = {
-            "tldr": summary_obj.tldr,
-            "decisions": summary_obj.decisions or [],
-            "topics": summary_obj.topics or [],
-        }
+    # Selama draft, portal tidak boleh menampilkan apa pun dari isi notulen --
+    # status/versi tetap dikirim supaya UI bisa menulis "notulen belum tersedia".
+    visible = notulen_service.is_notulen_visible(meeting, participant.user_id)
+    notulen_meta = notulen_service.build_notulen_meta(meeting)
 
-    action_items = [
-        {
-            "id": str(ai.id),
-            "task": ai.task,
-            "due_date": ai.due_date.isoformat() if ai.due_date else None,
-            "status": ai.status.value if hasattr(ai.status, 'value') else ai.status,
-        }
-        for ai in meeting.action_items
-        if ai.assignee_participant_id == participant.id
-    ]
+    summary = None
+    action_items = []
+    if visible:
+        summary_obj = db.query(SummaryModel).filter(SummaryModel.meeting_id == meeting.id).first()
+        if summary_obj:
+            summary = {
+                "tldr": summary_obj.tldr,
+                "decisions": summary_obj.decisions or [],
+                "topics": summary_obj.topics or [],
+            }
+
+        action_items = [
+            {
+                "id": str(ai.id),
+                "task": ai.task,
+                "due_date": ai.due_date.isoformat() if ai.due_date else None,
+                "status": ai.status.value if hasattr(ai.status, 'value') else ai.status,
+            }
+            for ai in meeting.action_items
+            if ai.assignee_participant_id == participant.id
+        ]
+    else:
+        notulen_meta = notulen_meta.model_copy(update={"needs_review_count": 0})
 
     # Samakan dengan pengecekan di confirm_checkin() supaya halaman check-in
     # menampilkan status "ditutup" yang benar SEBELUM peserta klik tombol,
@@ -87,6 +97,7 @@ def get_checkin_info(db: Session, token: str) -> CheckinPageResponse:
         processing_status=processing_status,
         summary=summary,
         action_items=action_items,
+        notulen=notulen_meta,
     )
 
 
@@ -174,6 +185,10 @@ def update_checkin_action_item(
 ) -> dict:
     _, participant, meeting = _resolve_token(db, token)
 
+    # Pesan sama dengan kasus "bukan milik Anda" supaya keberadaan item draft tidak bocor.
+    if not notulen_service.is_notulen_visible(meeting, participant.user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Action item tidak ditemukan atau bukan milik Anda")
+
     action_item = db.query(ActionItem).filter(
         ActionItem.id == action_item_id,
         ActionItem.meeting_id == meeting.id,
@@ -195,7 +210,7 @@ def update_checkin_action_item(
 def get_checkin_notulen_pdf(db: Session, token: str) -> bytes:
     _, participant, meeting = _resolve_token(db, token)
 
-    if not meeting.summary:
+    if not meeting.summary or not notulen_service.is_notulen_visible(meeting, participant.user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notulen belum tersedia")
 
     organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"
@@ -206,6 +221,7 @@ def get_checkin_notulen_pdf(db: Session, token: str) -> bytes:
         summary=meeting.summary,
         action_items=meeting.action_items or [],
         viewer_participant_id=participant.id,
+        version_label=notulen_service.version_label(meeting),
     )
 
 

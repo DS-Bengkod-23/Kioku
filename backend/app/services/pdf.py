@@ -57,6 +57,7 @@ class NotulenPDF(FPDF):
         super().__init__(*args, **kwargs)
         self.header_title = ""
         self.header_date = ""
+        self.header_label = ""
         self.alias_nb_pages()
 
     def header(self):
@@ -66,6 +67,11 @@ class NotulenPDF(FPDF):
         self.cell(95, 5, self.header_title)
         self.set_font(_FONT_FAMILY, "", 9)
         self.cell(95, 5, self.header_date, align="R", new_x="LMARGIN", new_y="NEXT")
+        if self.header_label:
+            # Baris sendiri (bukan digabung ke tanggal) supaya label panjang seperti
+            # "DRAFT — belum dipublikasikan" tidak meluber dari sel 95mm.
+            self.set_font(_FONT_FAMILY, "B", 8)
+            self.cell(0, 4, self.header_label, align="R", new_x="LMARGIN", new_y="NEXT")
         self.set_line_width(0.3)
         self.line(self.l_margin, self.get_y(), self.w - self.r_margin, self.get_y())
         self.ln(4)
@@ -166,6 +172,7 @@ def generate_notulen_pdf(
     summary: Summary,
     action_items: list[ActionItem],
     viewer_participant_id: uuid.UUID | None = None,
+    version_label: str | None = None,
 ) -> bytes:
     # Peserta (bukan organizer) cuma boleh lihat action item miliknya sendiri di
     # notulen — samakan dengan filter yang sudah dipakai get_checkin_info().
@@ -183,6 +190,7 @@ def generate_notulen_pdf(
 
     pdf.header_title = meeting.title.upper()[:60]
     pdf.header_date = f"Tanggal Pertemuan {_fmt_date_slash(meeting.scheduled_at)}"
+    pdf.header_label = version_label or ""
 
     # ── COVER PAGE ───────────────────────────────────────────────────────────
     pdf.add_page()
@@ -221,6 +229,11 @@ def generate_notulen_pdf(
         f"Diinisiasi oleh: {organizer_name}",
     ):
         pdf.cell(0, 7.5, line, align="C", new_x="LMARGIN", new_y="NEXT")
+    if version_label:
+        # Header berjalan tidak dicetak di sampul, jadi label versi/draft juga
+        # ditaruh di sini supaya PDF draft tidak bisa disangka versi final.
+        pdf.set_font(_FONT_FAMILY, "B", 11)
+        pdf.cell(0, 7.5, version_label, align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_y(pdf.h - 25)
     pdf.set_line_width(0.8)

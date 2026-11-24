@@ -3,6 +3,8 @@ from typing import List, Literal, Optional, Any
 from datetime import datetime
 from uuid import UUID
 from app.schemas.recording import RecordingResponse
+from app.schemas.notulen import NotulenMeta
+from app.services import notulen as notulen_service
 
 
 class MeetingCreate(BaseModel):
@@ -87,6 +89,7 @@ class MeetingListItem(BaseModel):
     has_recording: bool
     processing_status: Optional[str] = None
     deleted_at: Optional[datetime] = None
+    notulen_status: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -116,6 +119,7 @@ class MeetingListItem(BaseModel):
             "has_recording": has_recording,
             "processing_status": processing_status,
             "deleted_at": getattr(data, 'deleted_at', None),
+            "notulen_status": data.notulen_status.value if data.notulen_status else None,
         }
 
 
@@ -160,6 +164,7 @@ class MeetingDetail(BaseModel):
     transcript: Optional[Any] = None
     summary: Optional[Any] = None
     action_items: Optional[List[Any]] = None
+    notulen: NotulenMeta = Field(default_factory=NotulenMeta)
 
     @model_validator(mode='before')
     @classmethod
@@ -206,6 +211,9 @@ class MeetingDetail(BaseModel):
                 ),
                 "due_date": ai.due_date.isoformat() if ai.due_date else None,
                 "status": ai.status.value if hasattr(ai.status, "value") else ai.status,
+                "ai_assignee_text": ai.ai_assignee_text,
+                "ai_due_date_text": ai.ai_due_date_text,
+                "needs_review": notulen_service.needs_review(ai),
             }
             for ai in (getattr(data, "action_items", None) or [])
         ]
@@ -230,4 +238,5 @@ class MeetingDetail(BaseModel):
             "transcript": transcript,
             "summary": summary,
             "action_items": action_items,
+            "notulen": notulen_service.build_notulen_meta(data),
         }

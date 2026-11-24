@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Mirror alembic/env.py's defensive sys.path handling so `import app...`
@@ -28,6 +29,13 @@ from app.config import settings  # noqa: E402
 from app.database import Base, _get_engine_url, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app import models  # noqa: E402,F401 — registers every model on Base.metadata
+from app.models.action_item import ActionItem, ActionItemSource  # noqa: E402
+from app.models.invitation import Invitation  # noqa: E402
+from app.models.meeting import Meeting, NotulenStatus  # noqa: E402
+from app.models.participant import MeetingParticipant, ParticipantRole  # noqa: E402
+from app.models.recording import ProcessingStatus, Recording  # noqa: E402
+from app.models.summary import Summary  # noqa: E402
+from app.models.transcript import Transcript  # noqa: E402
 from app.models.user import User, UserRole  # noqa: E402
 from app.services.auth import create_access_token, hash_password  # noqa: E402
 
@@ -106,6 +114,98 @@ def make_user(db_session):
         db_session.commit()
         db_session.refresh(user)
         return user
+
+    return _make
+
+
+@pytest.fixture
+def make_meeting(db_session):
+    """Meeting 'Team Sync' dengan organizer + member (peserta berundangan).
+
+    `with_notulen` mengisi Summary/Transcript/ActionItem(ai, assignee = member
+    pertama); `with_recording` menambah Recording yang sudah completed.
+    """
+
+    def _make(
+        organizer: User,
+        members: list[User] = (),
+        *,
+        notulen_status: NotulenStatus | None = None,
+        with_notulen: bool = False,
+        with_recording: bool = False,
+    ) -> Meeting:
+        now = datetime.now(timezone.utc)
+        meeting = Meeting(
+            organizer_id=organizer.id,
+            title="Team Sync",
+            scheduled_at=now + timedelta(days=1),
+            notulen_status=notulen_status,
+        )
+        db_session.add(meeting)
+        db_session.flush()
+
+        db_session.add(
+            MeetingParticipant(
+                meeting_id=meeting.id,
+                user_id=organizer.id,
+                email=organizer.email,
+                role=ParticipantRole.organizer,
+            )
+        )
+        member_participants = []
+        for member in members:
+            participant = MeetingParticipant(
+                meeting_id=meeting.id,
+                user_id=member.id,
+                email=member.email,
+                role=ParticipantRole.peserta,
+            )
+            participant.invitation = Invitation(
+                token=uuid.uuid4().hex, expires_at=now + timedelta(days=30)
+            )
+            db_session.add(participant)
+            member_participants.append(participant)
+        db_session.flush()
+
+        if with_notulen:
+            db_session.add(
+                Summary(
+                    meeting_id=meeting.id,
+                    tldr="Ringkasan AI",
+                    decisions=["Keputusan A"],
+                    topics=["Topik A"],
+                )
+            )
+            db_session.add(
+                Transcript(
+                    meeting_id=meeting.id,
+                    segments=[
+                        {"speaker": "SPEAKER_00", "start": 0.0, "end": 5.0, "text": "Halo semua"}
+                    ],
+                )
+            )
+            db_session.add(
+                ActionItem(
+                    meeting_id=meeting.id,
+                    task="Kirim laporan",
+                    source=ActionItemSource.ai,
+                    assignee_participant_id=(
+                        member_participants[0].id if member_participants else None
+                    ),
+                )
+            )
+        if with_recording:
+            db_session.add(
+                Recording(
+                    meeting_id=meeting.id,
+                    file_url="meetings/x.mp3",
+                    size=1,
+                    processing_status=ProcessingStatus.completed,
+                )
+            )
+        db_session.commit()
+        db_session.refresh(meeting)
+        return meeting
 
     return _make
 

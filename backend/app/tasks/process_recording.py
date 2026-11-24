@@ -2,7 +2,6 @@ import os
 import uuid
 import logging
 import tempfile
-from datetime import date
 
 from sqlalchemy.orm import joinedload
 
@@ -11,13 +10,10 @@ from app.database import SessionLocal
 from app.config import settings
 from app.models.recording import Recording, ProcessingStatus
 from app.models.transcript import Transcript
-from app.models.summary import Summary
-from app.models.action_item import ActionItem, ActionItemSource
 from app.models.meeting import Meeting, MeetingStatus
 from app.models.participant import MeetingParticipant
 from app.services.storage import get_minio_client
-from app.services.email import send_notulen_email
-from app.services.pdf import generate_notulen_pdf
+from app.services import notulen as notulen_service
 
 logger = logging.getLogger(__name__)
 
@@ -129,9 +125,8 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
         _set_step(db, recording, "diarize", ProcessingStatus.extracting)
 
         # Step 7: extract summary and action items (PLACEHOLDER)
-        # Eager-load participants.user & .invitation sekaligus — dipakai lagi nanti
-        # di step 10 (distribusi email notulen), tanpa ini tiap p.invitation di loop
-        # itu jadi lazy-load terpisah (N+1 query per peserta).
+        # Eager-load participants.user & .invitation sekaligus supaya pencocokan
+        # nama assignee tidak lazy-load per peserta (N+1 query).
         meeting = (
             db.query(Meeting)
             .options(
@@ -164,107 +159,33 @@ def process_recording_task(self, recording_id: str, meeting_id: str):
             _mark_failed(db, recording, "ML pipeline not yet implemented")
             raise MLPipelineError("Extract failed: ML pipeline not yet implemented") from e
 
-        # Step 8: save Transcript, Summary, ActionItem to DB
-        # Clear any rows left over from a previous crashed attempt so a Celery
-        # retry doesn't hit the unique meeting_id constraint on transcripts/summaries.
-        # Only AI-sourced action items are cleared here — action items an organizer
-        # added manually (POST /meetings/{id}/action-items) must survive reprocessing.
-        db.query(ActionItem).filter(
-            ActionItem.meeting_id == uuid.UUID(meeting_id),
-            ActionItem.source == ActionItemSource.ai,
-        ).delete()
+        # Step 8: simpan Transcript, lalu hasil AI sebagai DRAFT notulen.
+        # Notulen tidak dikirim di sini: organizer memeriksanya dulu, email + PDF
+        # baru keluar saat dia klik Publikasikan (lihat services/notulen.py).
+        # Baris sisa dari percobaan sebelumnya (Celery retry) dibersihkan supaya
+        # tidak menabrak unique meeting_id; save_ai_results membersihkan Summary
+        # dan action item AI-nya sendiri (action item manual organizer dipertahankan).
         db.query(Transcript).filter(Transcript.meeting_id == uuid.UUID(meeting_id)).delete()
-        db.query(Summary).filter(Summary.meeting_id == uuid.UUID(meeting_id)).delete()
-
-        transcript_obj = Transcript(
-            meeting_id=uuid.UUID(meeting_id),
-            segments=[
-                seg if isinstance(seg, dict) else seg.model_dump()
-                for seg in segments
-            ],
-        )
-        db.add(transcript_obj)
-
-        summary_obj = Summary(
-            meeting_id=uuid.UUID(meeting_id),
-            tldr=summary_result.tldr,
-            decisions=summary_result.decisions,
-            topics=getattr(summary_result, "topics", []),
-        )
-        db.add(summary_obj)
-
-        name_to_participant = {
-            (p.user.name if p.user else p.email): p for p in participants
-        }
-
-        for item in action_items_result:
-            assignee_name = getattr(item, "assignee_name", None) or getattr(item, "assignee", None)
-            assignee_id = None
-            if assignee_name:
-                participant = name_to_participant.get(assignee_name)
-                if participant:
-                    assignee_id = participant.id
-
-            # ml.schemas.ActionItem exposes the LLM's due date guess as free text
-            # (due_date_text) — only keep it if it happens to parse as an ISO date.
-            due_text = getattr(item, "due_date_text", None)
-            due = None
-            if isinstance(due_text, str):
-                try:
-                    due = date.fromisoformat(due_text.strip())
-                except ValueError:
-                    due = None
-
-            db.add(ActionItem(
+        db.add(
+            Transcript(
                 meeting_id=uuid.UUID(meeting_id),
-                task=item.task,
-                assignee_participant_id=assignee_id,
-                due_date=due,
-                source=ActionItemSource.ai,
-            ))
-
-        db.commit()
-        db.refresh(summary_obj)
-
-        # Step 9: mark extract done, start sending email
-        _set_step(db, recording, "extract", ProcessingStatus.sending_email)
-
-        # Step 10: generate PDF satu kali, kirim ke semua peserta yang punya invitation token
-        db_action_items = db.query(ActionItem).filter(
-            ActionItem.meeting_id == uuid.UUID(meeting_id)
-        ).all()
-
-        db.refresh(meeting)
-        organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"
-        pdf_bytes = generate_notulen_pdf(
-            meeting=meeting,
-            organizer_name=organizer_name,
-            participants=participants,
-            summary=summary_obj,
-            action_items=db_action_items,
-        )
-
-        for p in participants:
-            if not p.invitation or not p.invitation.token:
-                continue
-            checkin_url = f"{settings.APP_BASE_URL}/check-in/{p.invitation.token}"
-            send_notulen_email(
-                recipient_email=p.email,
-                recipient_name=p.user.name if p.user else p.email,
-                meeting_title=meeting.title,
-                scheduled_at=meeting.scheduled_at,
-                checkin_url=checkin_url,
-                pdf_bytes=pdf_bytes,
-                meeting_id=uuid.UUID(meeting_id),
-                db=db,
+                segments=[
+                    seg if isinstance(seg, dict) else seg.model_dump()
+                    for seg in segments
+                ],
             )
+        )
+        notulen_service.save_ai_results(
+            db, meeting, participants, summary_result, action_items_result
+        )
+        db.commit()
 
-        # Step 11: auto-lock attendance after notulen distributed
+        # Step 9: kunci absensi + tandai rapat selesai (tidak menunggu publish)
         meeting.attendance_locked = True
         meeting.status = MeetingStatus.completed
         db.commit()
 
-        _set_step(db, recording, "send_email", ProcessingStatus.completed)
+        _set_step(db, recording, "extract", ProcessingStatus.completed)
 
     except Exception as exc:
         logger.exception("process_recording_task failed for recording %s", recording_id)

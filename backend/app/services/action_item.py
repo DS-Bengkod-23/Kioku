@@ -3,9 +3,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.action_item import ActionItem, ActionItemStatus
-from app.models.meeting import Meeting
+from app.models.meeting import Meeting, NotulenStatus
 from app.models.participant import MeetingParticipant
 from app.schemas.action_item import ActionItemUpdateRequest, ActionItemCreateRequest
+from app.services import notulen as notulen_service
+
+_ORGANIZER_ONLY = "Hanya organizer yang bisa mengedit notulen"
 
 def create_action_item(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data: ActionItemCreateRequest) -> ActionItem:
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
@@ -30,6 +33,7 @@ def create_action_item(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, d
         due_date=data.due_date,
     )
     db.add(action_item)
+    notulen_service.mark_edited(meeting)
     db.commit()
     db.refresh(action_item)
     return action_item
@@ -45,6 +49,12 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
 
     update_data = data.model_dump(exclude_unset=True)
     is_organizer = meeting.organizer_id == user_id
+    edited = False
+
+    # Draft belum boleh diketahui peserta: pesan 404 sama dengan "item tidak ada"
+    # supaya keberadaan action item yang belum dipublikasikan tidak bocor.
+    if not notulen_service.is_notulen_visible(meeting, user_id):
+        raise HTTPException(status_code=404, detail="Action item not found")
 
     if "status" in update_data:
         is_current_assignee = (
@@ -67,21 +77,61 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
             if not participant:
                 raise HTTPException(status_code=400, detail="Participant bukan anggota rapat ini")
         action_item.assignee_participant_id = new_assignee_id
+        if new_assignee_id is not None:
+            action_item.ai_assignee_text = None
+        edited = True
 
     if "due_date" in update_data:
         if not is_organizer:
             raise HTTPException(status_code=403, detail="Hanya organizer yang bisa ubah due date")
         action_item.due_date = update_data["due_date"]
+        if update_data["due_date"] is not None:
+            action_item.ai_due_date_text = None
+        edited = True
 
+    if update_data.get("task") is not None:
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail=_ORGANIZER_ONLY)
+        action_item.task = update_data["task"]
+        edited = True
+
+    if update_data.get("dismiss_review"):
+        if not is_organizer:
+            raise HTTPException(status_code=403, detail=_ORGANIZER_ONLY)
+        action_item.ai_assignee_text = None
+        action_item.ai_due_date_text = None
+        edited = True
+
+    # Toggle status sengaja tidak dihitung sebagai edit isi notulen.
+    if edited:
+        notulen_service.mark_edited(meeting)
     db.commit()
     db.refresh(action_item)
     return action_item
 
+def delete_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    action_item = db.query(ActionItem).filter(ActionItem.id == action_item_id).first()
+    if not action_item:
+        raise HTTPException(status_code=404, detail="Action item not found")
+
+    meeting = action_item.meeting
+    if not notulen_service.is_notulen_visible(meeting, user_id):
+        raise HTTPException(status_code=404, detail="Action item not found")
+    if meeting.organizer_id != user_id:
+        raise HTTPException(status_code=403, detail=_ORGANIZER_ONLY)
+
+    db.delete(action_item)
+    notulen_service.mark_edited(meeting)
+    db.commit()
+
 def get_my_action_items(db: Session, user_id: uuid.UUID, status_filter: Optional[ActionItemStatus] = None) -> list[ActionItem]:
     query = db.query(ActionItem).join(
         MeetingParticipant, ActionItem.assignee_participant_id == MeetingParticipant.id
+    ).join(
+        Meeting, ActionItem.meeting_id == Meeting.id
     ).filter(
-        MeetingParticipant.user_id == user_id
+        MeetingParticipant.user_id == user_id,
+        Meeting.notulen_status == NotulenStatus.published,
     )
 
     if status_filter:

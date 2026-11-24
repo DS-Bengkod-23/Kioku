@@ -6,7 +6,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import IntegrityError
 from app.config import settings
 from app.rate_limit import limiter
-from app.routers import auth, meetings, checkin, recordings, action_items, calendar, admin, config
+from app.routers import auth, meetings, checkin, recordings, action_items, calendar, admin, config, notulen
 
 app = FastAPI(title="Kioku API")
 
@@ -33,6 +33,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(meetings.router, prefix="/api/v1/meetings")
+app.include_router(notulen.router, prefix="/api/v1/meetings")
 app.include_router(checkin.router, prefix="/api/v1")
 app.include_router(recordings.router, prefix="/api/v1/meetings")
 app.include_router(action_items.router, prefix="/api/v1")

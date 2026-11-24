@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, Any
 from datetime import date
 from uuid import UUID
@@ -22,6 +22,9 @@ class ActionItemResponse(BaseModel):
     assignee: Optional[AssigneeResponse] = None
     due_date: Optional[date] = None
     status: ActionItemStatus
+    ai_assignee_text: Optional[str] = None
+    ai_due_date_text: Optional[str] = None
+    needs_review: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -48,12 +51,27 @@ class ActionItemResponse(BaseModel):
             "assignee": assignee,
             "due_date": data.due_date,
             "status": status,
+            "ai_assignee_text": data.ai_assignee_text,
+            "ai_due_date_text": data.ai_due_date_text,
+            "needs_review": data.ai_assignee_text is not None or data.ai_due_date_text is not None,
         }
+
+def _strip_task(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        raise ValueError("Teks tugas tidak boleh kosong")
+    return value
 
 class ActionItemUpdateRequest(BaseModel):
     status: Optional[ActionItemStatus] = None
     assignee_participant_id: Optional[UUID] = None
     due_date: Optional[date] = None
+    task: Optional[str] = None  # organizer saja
+    dismiss_review: Optional[bool] = None  # organizer saja: hapus penanda "Perlu dicek"
+
+    _clean_task = field_validator("task")(_strip_task)
 
 class ActionItemCreateRequest(BaseModel):
     task: str

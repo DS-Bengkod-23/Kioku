@@ -262,10 +262,12 @@ Cek status processing pipeline ML.
 }
 ```
 
-Status values: `queued`, `transcribing`, `diarizing`, `extracting`, `sending_email`, `completed`, `failed`
+Status values: `queued`, `transcribing`, `diarizing`, `extracting`, `completed`, `failed`
+
+> `completed` hanya berarti AI selesai memproses, **bukan** bahwa notulen sudah terlihat peserta. Pakai `notulen.status` (lihat "Review notulen"). Nilai `sending_email` tidak dipakai lagi.
 
 ### DELETE /meetings/:id/recording
-Hapus file rekaman. Hanya organizer yang bisa. Hapus juga transcript, summary, action item terkait.
+Hapus file audio dan baris rekaman. Hanya organizer yang bisa. **Transkrip, ringkasan, action item, dan status notulen tetap tersimpan.** (Mengunggah rekaman pengganti menghapus hasil AI sebelumnya dan mengosongkan `notulen.status`.)
 
 **Response 204:** no content
 
@@ -393,6 +395,16 @@ List semua action item yang di-assign ke user yang login, lintas meeting.
   ]
 }
 ```
+
+---
+
+## Review notulen
+
+Hasil AI disimpan sebagai **draft** yang hanya terlihat dan bisa diedit organizer. Email + PDF dikirim ke peserta saat organizer publikasi atau kirim ulang. Selama draft, `GET /meetings/:id`, `GET /check-in/:token`, PDF, pencarian, `GET /me/action-items`, dan reminder tidak menampilkan isi notulen ke peserta.
+
+Endpoint: `PATCH /meetings/:id/summary`, `PATCH /meetings/:id/transcript/speakers`, `POST /meetings/:id/notulen/publish`, `POST /meetings/:id/notulen/resend`, `PATCH /action-items/:id` (diperluas: `task`, `dismiss_review`), `DELETE /action-items/:id`. Respons `MeetingDetail` mendapat field `notulen`, `MeetingListItem` mendapat `notulen_status`.
+
+Kontrak lengkap (bentuk request/response, daftar error, aturan cache): [`notulen-review-frontend-handoff.md`](./notulen-review-frontend-handoff.md). Alasan desain: [`notulen-review-design.md`](./notulen-review-design.md).
 
 ---
 

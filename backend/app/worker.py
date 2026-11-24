@@ -10,6 +10,7 @@ celery_app = Celery(
         "app.tasks.process_recording",
         "app.tasks.calendar_sync",
         "app.tasks.action_item_reminders",
+        "app.tasks.send_notulen",
     ],
 )
 
