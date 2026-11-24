@@ -1,6 +1,7 @@
 import smtplib
 import uuid
 import logging
+from email.utils import make_msgid
 from datetime import date, datetime
 from email import encoders
 from email.mime.base import MIMEBase
@@ -85,6 +86,19 @@ def send_invitation_email(
     # Caller (create_meeting/update_meeting) yang commit di akhir transaksinya.
 
 
+def _message_id_domain() -> str:
+    return settings.SMTP_USER.partition("@")[2] or "kioku.local"
+
+
+def notulen_root_message_id(meeting_id: uuid.UUID, participant_id: uuid.UUID) -> str:
+    """Message-ID deterministik email notulen versi 1 per peserta.
+
+    Versi >= 2 membalas ID ini (In-Reply-To/References) supaya klien email
+    menumpuknya dalam satu thread, tanpa perlu menyimpan ID apa pun di DB.
+    """
+    return f"<notulen-{meeting_id}-{participant_id}@{_message_id_domain()}>"
+
+
 def send_notulen_email(
     recipient_email: str,
     recipient_name: str,
@@ -94,11 +108,18 @@ def send_notulen_email(
     pdf_bytes: bytes,
     meeting_id: uuid.UUID,
     db: Session,
+    participant_id: uuid.UUID,
+    version: int,
 ) -> None:
     scheduled_str = scheduled_at.strftime("%d %B %Y %H:%M")
 
+    version_notice = (
+        f"<p><b>Versi {version}</b> — versi ini menggantikan notulen sebelumnya.</p>\n"
+        if version >= 2
+        else ""
+    )
     body_html = f"""<html><body>
-<p>Yth. {recipient_name},</p>
+{version_notice}<p>Yth. {recipient_name},</p>
 <p>Rapat <b>{meeting_title}</b> pada {scheduled_str} telah selesai diproses.</p>
 <p>Notulen lengkap (ringkasan, keputusan, dan action item Anda) tersedia di portal peserta:</p>
 <p><a href="{checkin_url}" style="font-size:16px;font-weight:bold;">Buka Portal Saya &rarr;</a></p>
@@ -114,6 +135,13 @@ def send_notulen_email(
         msg["Subject"] = f"Notulen Rapat: {meeting_title}"
         msg["From"] = settings.SMTP_USER or "noreply@kioku.local"
         msg["To"] = recipient_email
+        root_id = notulen_root_message_id(meeting_id, participant_id)
+        if version <= 1:
+            msg["Message-ID"] = root_id
+        else:
+            msg["Message-ID"] = make_msgid(domain=_message_id_domain())
+            msg["In-Reply-To"] = root_id
+            msg["References"] = root_id
 
         msg.attach(MIMEText(body_html, "html"))
 
@@ -136,8 +164,8 @@ def send_notulen_email(
         status=status,
     )
     db.add(log)
-    # Sengaja tidak commit di sini — caller (process_recording_task) commit setelah
-    # semua peserta selesai dikirimi, sekaligus dengan attendance_locked/status.
+    # Sengaja tidak commit di sini — caller (send_notulen_task) commit setelah
+    # semua peserta selesai dikirimi.
 
 
 def send_password_reset_email(recipient_email: str, recipient_name: str, reset_token: str) -> None:

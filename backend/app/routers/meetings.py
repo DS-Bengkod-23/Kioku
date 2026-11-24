@@ -173,6 +173,7 @@ def download_notulen_pdf(
         participants=meeting.participants,
         summary=meeting.summary,
         action_items=meeting.action_items or [],
+        version_label=notulen_service.version_label(meeting),
     )
     safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in meeting.title)
     return Response(

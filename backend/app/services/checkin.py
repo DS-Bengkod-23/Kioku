@@ -221,6 +221,7 @@ def get_checkin_notulen_pdf(db: Session, token: str) -> bytes:
         summary=meeting.summary,
         action_items=meeting.action_items or [],
         viewer_participant_id=participant.id,
+        version_label=notulen_service.version_label(meeting),
     )
 
 

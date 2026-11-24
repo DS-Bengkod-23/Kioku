@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.schemas.notulen import (
+    NotulenMeta,
     SpeakerRenameRequest,
     SummaryResponse,
     SummaryUpdateRequest,
@@ -35,3 +36,23 @@ def rename_speakers(
     current_user: User = Depends(get_current_user),
 ):
     return notulen_service.rename_speakers(db, meeting_id, current_user.id, data.renames)
+
+
+@router.post("/{meeting_id}/notulen/publish", response_model=NotulenMeta)
+def publish_notulen(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    meeting = notulen_service.publish_notulen(db, meeting_id, current_user.id)
+    return notulen_service.build_notulen_meta(meeting)
+
+
+@router.post("/{meeting_id}/notulen/resend", response_model=NotulenMeta)
+def resend_notulen(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    meeting = notulen_service.resend_notulen(db, meeting_id, current_user.id)
+    return notulen_service.build_notulen_meta(meeting)

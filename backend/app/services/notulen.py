@@ -7,6 +7,8 @@ import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.action_item import ActionItem, ActionItemSource
@@ -191,3 +193,103 @@ def rename_speakers(
     db.commit()
     db.refresh(transcript)
     return transcript
+
+
+def build_published_snapshot(meeting: Meeting) -> dict:
+    """Isi notulen yang dikirim ke peserta (bentuk `published` di spec)."""
+    summary = meeting.summary
+    items = sorted(meeting.action_items, key=lambda item: item.id)
+    return {
+        "tldr": summary.tldr,
+        "decisions": list(summary.decisions),
+        "topics": list(summary.topics),
+        "action_items": [
+            {
+                "id": str(item.id),
+                "task": item.task,
+                "assignee_participant_id": (
+                    str(item.assignee_participant_id) if item.assignee_participant_id else None
+                ),
+                "assignee_name": (
+                    (item.assignee_participant.user.name if item.assignee_participant.user
+                     else item.assignee_participant.email)
+                    if item.assignee_participant
+                    else None
+                ),
+                "due_date": item.due_date.isoformat() if item.due_date else None,
+            }
+            for item in items
+        ],
+    }
+
+
+def version_label(meeting: Meeting) -> str:
+    """Label di PDF: draft vs `Versi n` (+ tanggal edit kalau ada perubahan belum terkirim)."""
+    if meeting.notulen_status == NotulenStatus.draft:
+        return "DRAFT — belum dipublikasikan"
+    latest = _latest_published(meeting)
+    if meeting.notulen_status != NotulenStatus.published or latest is None:
+        return ""
+    label = f"Versi {latest.version}"
+    if _has_unsent_changes(meeting, latest):
+        label += f" · diperbarui {meeting.notulen_edited_at.strftime('%d/%m/%Y')}"
+    return label
+
+
+def _send_new_version(db: Session, meeting: Meeting, user_id: uuid.UUID) -> Meeting:
+    """Buat versi published berikutnya lalu antrikan email. Dipakai publish dan kirim ulang."""
+    # Tarik max dari DB (bukan dari relasi yang mungkin basi): dua request bersamaan
+    # akan sama-sama menghitung n+1, dan unique (meeting_id, version) menolak yang kalah.
+    latest_number = (
+        db.query(func.max(NotulenVersion.version))
+        .filter(
+            NotulenVersion.meeting_id == meeting.id,
+            NotulenVersion.kind == NotulenVersionKind.published,
+        )
+        .scalar()
+    ) or 0
+    version = latest_number + 1
+
+    db.add(
+        NotulenVersion(
+            meeting_id=meeting.id,
+            kind=NotulenVersionKind.published,
+            version=version,
+            content=build_published_snapshot(meeting),
+            created_by=user_id,
+        )
+    )
+    meeting.notulen_status = NotulenStatus.published
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Notulen sedang dikirim, muat ulang halaman")
+
+    # Import lazy (pola upload_recording): task di-import saat dipakai supaya test
+    # bisa me-monkeypatch `.delay` tanpa broker Redis.
+    from app.tasks.send_notulen import send_notulen_task  # noqa: PLC0415
+
+    send_notulen_task.delay(str(meeting.id), version)
+    db.refresh(meeting)
+    return meeting
+
+
+def publish_notulen(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
+    meeting = get_organizer_meeting(db, meeting_id, user_id)
+    if meeting.summary is None or meeting.notulen_status is None:
+        raise HTTPException(status_code=404, detail="Notulen belum tersedia")
+    if meeting.notulen_status != NotulenStatus.draft:
+        raise HTTPException(status_code=409, detail="Notulen sudah dipublikasikan")
+    return _send_new_version(db, meeting, user_id)
+
+
+def resend_notulen(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
+    meeting = get_organizer_meeting(db, meeting_id, user_id)
+    if meeting.summary is None:
+        raise HTTPException(status_code=404, detail="Notulen belum tersedia")
+    if meeting.notulen_status != NotulenStatus.published:
+        raise HTTPException(status_code=409, detail="Notulen belum dipublikasikan")
+    if not build_notulen_meta(meeting).has_unsent_changes:
+        raise HTTPException(status_code=409, detail="Tidak ada perubahan sejak versi terakhir")
+    return _send_new_version(db, meeting, user_id)
