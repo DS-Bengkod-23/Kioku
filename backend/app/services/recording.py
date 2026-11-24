@@ -74,17 +74,25 @@ def _require_participant(meeting: Meeting, user_id: uuid.UUID):
         raise HTTPException(status_code=403, detail="Not authorized to access this meeting")
 
 
-def _delete_recording_records(db: Session, recording: Recording, meeting_id: uuid.UUID) -> None:
+def _clear_previous_processing(db: Session, recording: Recording, meeting: Meeting) -> None:
+    """Dipakai HANYA saat rekaman diganti (upload pengganti): buang hasil proses lama.
+
+    Hapus audio saja (delete_recording) sengaja tidak lewat sini, supaya notulen
+    resmi tidak hilang karena alasan privasi. Riwayat `notulen_versions` dipertahankan
+    agar versi yang sudah terkirim tetap tercatat dan penomoran berlanjut (n+1).
+    """
     # Hanya action item ber-source AI yang dihapus di sini — action item yang
-    # ditambahkan manual oleh organizer harus tetap ada walau rekamannya diganti/dihapus
+    # ditambahkan manual oleh organizer harus tetap ada walau rekamannya diganti
     # (konsisten dengan reprocessing di tasks/process_recording.py).
     db.query(ActionItem).filter(
-        ActionItem.meeting_id == meeting_id,
+        ActionItem.meeting_id == meeting.id,
         ActionItem.source == ActionItemSource.ai,
     ).delete()
-    db.query(Summary).filter(Summary.meeting_id == meeting_id).delete()
-    db.query(Transcript).filter(Transcript.meeting_id == meeting_id).delete()
+    db.query(Summary).filter(Summary.meeting_id == meeting.id).delete()
+    db.query(Transcript).filter(Transcript.meeting_id == meeting.id).delete()
     db.delete(recording)
+    meeting.notulen_status = None
+    meeting.notulen_edited_at = None
 
 
 async def upload_recording(
@@ -157,7 +165,7 @@ async def upload_recording(
 
     old_file_url = existing.file_url if existing else None
     if existing:
-        _delete_recording_records(db, existing, meeting_id)
+        _clear_previous_processing(db, existing, meeting)
 
     recording = Recording(
         meeting_id=meeting_id,
@@ -247,5 +255,7 @@ def delete_recording(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID):
 
     storage.delete_file(recording.file_url)
 
-    _delete_recording_records(db, recording, meeting_id)
+    # Hanya file audio dan baris Recording: transkrip, ringkasan, action item, dan
+    # status notulen tetap ada (notulen resmi tidak boleh hilang karena hapus audio).
+    db.delete(recording)
     db.commit()
