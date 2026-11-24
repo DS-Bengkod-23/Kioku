@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from datetime import datetime, date
 from app.models.attendance import AttendanceStatus, AttendanceMethod
 from app.models.action_item import ActionItemStatus
+from app.schemas.notulen import NotulenMeta
 
 
 class CheckinSummary(BaseModel):
@@ -30,6 +31,7 @@ class CheckinPageResponse(BaseModel):
     processing_status: Optional[str] = None
     summary: Optional[dict] = None
     action_items: list[dict] = []
+    notulen: Optional[NotulenMeta] = None
 
 
 class CheckinActionItemUpdateRequest(BaseModel):

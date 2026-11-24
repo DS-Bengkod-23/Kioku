@@ -7,6 +7,7 @@ from app.worker import celery_app
 from app.database import SessionLocal
 from app.config import settings
 from app.models.action_item import ActionItem, ActionItemStatus
+from app.models.meeting import Meeting, NotulenStatus
 from app.models.participant import MeetingParticipant
 from app.services.email import send_action_item_reminder_email
 
@@ -31,7 +32,10 @@ def send_action_item_reminders_task(self):
                 joinedload(ActionItem.assignee_participant).joinedload(MeetingParticipant.invitation),
                 joinedload(ActionItem.meeting),
             )
+            .join(Meeting, ActionItem.meeting_id == Meeting.id)
             .filter(
+                # Action item dari notulen yang belum dipublikasikan belum boleh diketahui assignee.
+                Meeting.notulen_status == NotulenStatus.published,
                 ActionItem.due_date == tomorrow,
                 ActionItem.status == ActionItemStatus.open,
                 ActionItem.reminder_sent_at.is_(None),

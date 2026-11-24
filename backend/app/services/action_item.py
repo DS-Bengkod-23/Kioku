@@ -3,9 +3,10 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.models.action_item import ActionItem, ActionItemStatus
-from app.models.meeting import Meeting
+from app.models.meeting import Meeting, NotulenStatus
 from app.models.participant import MeetingParticipant
 from app.schemas.action_item import ActionItemUpdateRequest, ActionItemCreateRequest
+from app.services import notulen as notulen_service
 
 def create_action_item(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, data: ActionItemCreateRequest) -> ActionItem:
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
@@ -46,6 +47,11 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
     update_data = data.model_dump(exclude_unset=True)
     is_organizer = meeting.organizer_id == user_id
 
+    # Draft belum boleh diketahui peserta: pesan 404 sama dengan "item tidak ada"
+    # supaya keberadaan action item yang belum dipublikasikan tidak bocor.
+    if not notulen_service.is_notulen_visible(meeting, user_id):
+        raise HTTPException(status_code=404, detail="Action item not found")
+
     if "status" in update_data:
         is_current_assignee = (
             action_item.assignee_participant is not None
@@ -80,8 +86,11 @@ def update_action_item(db: Session, action_item_id: uuid.UUID, user_id: uuid.UUI
 def get_my_action_items(db: Session, user_id: uuid.UUID, status_filter: Optional[ActionItemStatus] = None) -> list[ActionItem]:
     query = db.query(ActionItem).join(
         MeetingParticipant, ActionItem.assignee_participant_id == MeetingParticipant.id
+    ).join(
+        Meeting, ActionItem.meeting_id == Meeting.id
     ).filter(
-        MeetingParticipant.user_id == user_id
+        MeetingParticipant.user_id == user_id,
+        Meeting.notulen_status == NotulenStatus.published,
     )
 
     if status_filter:
