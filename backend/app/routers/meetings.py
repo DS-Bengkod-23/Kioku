@@ -19,6 +19,7 @@ from app.schemas.meeting import (
 from app.schemas.action_item import ActionItemResponse, ActionItemCreateRequest
 from app.services import meeting as meeting_service
 from app.services import action_item as action_item_service
+from app.services import notulen as notulen_service
 from app.services.pdf import generate_notulen_pdf
 
 router = APIRouter(tags=["meetings"])
@@ -33,13 +34,32 @@ def _mask_others_checkin_tokens(meeting, detail: MeetingDetail, current_user_id:
                 participant_detail.checkin_token = None
     return detail
 
+def _hide_notulen_if_needed(meeting, detail: MeetingDetail, user_id: uuid.UUID) -> MeetingDetail:
+    # Draft notulen hanya untuk organizer. Pakai SATU helper ini di setiap endpoint
+    # yang mengembalikan MeetingDetail; field `notulen` (status/versi) tetap dikirim
+    # supaya UI bisa menampilkan "notulen belum tersedia", tapi hitungan review di-nol-kan.
+    if not notulen_service.is_notulen_visible(meeting, user_id):
+        detail.summary = None
+        detail.transcript = None
+        detail.action_items = []
+        detail.notulen = detail.notulen.model_copy(update={"needs_review_count": 0})
+    return detail
+
+
+def _detail_for(meeting, user_id: uuid.UUID) -> MeetingDetail:
+    detail = MeetingDetail.model_validate(meeting)
+    detail = _mask_others_checkin_tokens(meeting, detail, user_id)
+    return _hide_notulen_if_needed(meeting, detail, user_id)
+
+
 @router.post("/", response_model=MeetingDetail, status_code=status.HTTP_201_CREATED)
 def create_meeting(
     data: MeetingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return meeting_service.create_meeting(db, organizer_id=current_user.id, data=data)
+    meeting = meeting_service.create_meeting(db, organizer_id=current_user.id, data=data)
+    return _detail_for(meeting, current_user.id)
 
 @router.get("/", response_model=MeetingListResponse)
 def get_meetings(
@@ -80,8 +100,7 @@ def get_meeting(
     meeting = meeting_service.get_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
     if meeting.deleted_at is not None:
         return MeetingDeletedNotice(id=meeting.id)
-    detail = MeetingDetail.model_validate(meeting)
-    return _mask_others_checkin_tokens(meeting, detail, current_user.id)
+    return _detail_for(meeting, current_user.id)
 
 @router.patch("/{meeting_id}", response_model=MeetingDetail)
 def update_meeting(
@@ -90,7 +109,8 @@ def update_meeting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return meeting_service.update_meeting(db, meeting_id=meeting_id, user_id=current_user.id, data=data)
+    meeting = meeting_service.update_meeting(db, meeting_id=meeting_id, user_id=current_user.id, data=data)
+    return _detail_for(meeting, current_user.id)
 
 @router.patch("/{meeting_id}/complete", response_model=MeetingDetail)
 def complete_meeting(
@@ -98,7 +118,8 @@ def complete_meeting(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return meeting_service.complete_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+    meeting = meeting_service.complete_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
+    return _detail_for(meeting, current_user.id)
 
 
 @router.patch("/{meeting_id}/rsvp", response_model=MeetingDetail)
@@ -111,8 +132,7 @@ def rsvp_meeting(
     meeting = meeting_service.submit_rsvp(
         db, meeting_id=meeting_id, user_id=current_user.id, response=data.response, reason=data.reason
     )
-    detail = MeetingDetail.model_validate(meeting)
-    return _mask_others_checkin_tokens(meeting, detail, current_user.id)
+    return _detail_for(meeting, current_user.id)
 
 
 @router.delete("/{meeting_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -143,7 +163,7 @@ def download_notulen_pdf(
     # Verifikasi akses — throws 403/404 kalau user bukan peserta
     meeting = meeting_service.get_meeting(db, meeting_id=meeting_id, user_id=current_user.id)
 
-    if meeting.summary is None:
+    if meeting.summary is None or not notulen_service.is_notulen_visible(meeting, current_user.id):
         raise HTTPException(status_code=404, detail="Notulen belum tersedia")
 
     organizer_name = meeting.organizer.name if meeting.organizer else "Organizer"

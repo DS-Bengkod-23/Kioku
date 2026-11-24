@@ -4,9 +4,9 @@ from datetime import date, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session, joinedload, selectinload
 from fastapi import HTTPException
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from app.config import settings
-from app.models.meeting import Meeting, MeetingStatus
+from app.models.meeting import Meeting, MeetingStatus, NotulenStatus
 from app.models.participant import MeetingParticipant, ParticipantRole, RsvpStatus
 from app.models.attendance import Attendance, AttendanceStatus, AttendanceMethod
 from app.models.user import User
@@ -157,6 +157,7 @@ def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeti
             joinedload(Meeting.recording),
             joinedload(Meeting.transcript),
             joinedload(Meeting.summary),
+            selectinload(Meeting.notulen_versions),
         )
         .filter(Meeting.id == meeting_id)
         .first()
@@ -375,11 +376,17 @@ def search_meetings(
     )
 
     search_pattern = f"%{query}%"
+    # Isi notulen (tldr / task) hanya boleh dicocokkan kalau terlihat oleh user ini
+    # (published, atau dia organizernya) -- draft tidak boleh bocor lewat hasil pencarian.
+    content_visible = or_(
+        Meeting.notulen_status == NotulenStatus.published,
+        Meeting.organizer_id == user_id,
+    )
     db_query = db_query.filter(
         or_(
             Meeting.title.ilike(search_pattern),
-            Summary.tldr.ilike(search_pattern),
-            ActionItem.task.ilike(search_pattern)
+            and_(content_visible, Summary.tldr.ilike(search_pattern)),
+            and_(content_visible, ActionItem.task.ilike(search_pattern)),
         )
     ).distinct()
 
