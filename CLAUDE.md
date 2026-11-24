@@ -156,11 +156,11 @@ GEMINI_MODEL=gemini-3.1-flash-lite
    - `extract_summary(transcript_text)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
    - `extract_action_items(transcript_text, participant_names)` → OpenAI or Gemini, depending on `LLM_PROVIDER`
 4. Results saved to DB (Transcript, Summary, ActionItem tables)
-5. Email distributed to all participants automatically
+5. Notulen disimpan sebagai draft (`meetings.notulen_status = draft`); email + PDF dikirim saat organizer publish (`send_notulen_task`)
 
 Frontend polls `GET /meetings/:id/recording/status` every `RECORDING_POLL_INTERVAL_SECONDS` (default 3) until status is `completed` or `failed`.
 
-**`ProcessingStatus` pipeline stages** (in order): `queued` → `transcribing` → `diarizing` → `extracting` → `sending_email` → `completed` | `failed`. Individual step completion is tracked in `recording.processing_steps` (JSONB). On failure, `recording.error_message` contains the reason.
+**`ProcessingStatus` pipeline stages** (in order): `queued` → `transcribing` → `diarizing` → `extracting` → `completed` | `failed` (nilai enum `sending_email` masih ada di DB tapi tidak dipakai lagi). Individual step completion is tracked in `recording.processing_steps` (JSONB). On failure, `recording.error_message` contains the reason.
 
 ### Backend Structure (`backend/app/`)
 
