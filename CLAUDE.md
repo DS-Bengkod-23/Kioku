@@ -162,6 +162,26 @@ Frontend polls `GET /meetings/:id/recording/status` every `RECORDING_POLL_INTERV
 
 **`ProcessingStatus` pipeline stages** (in order): `queued` → `transcribing` → `diarizing` → `extracting` → `completed` | `failed` (nilai enum `sending_email` masih ada di DB tapi tidak dipakai lagi). Individual step completion is tracked in `recording.processing_steps` (JSONB). On failure, `recording.error_message` contains the reason.
 
+### Live Recording (browser → chunks → m4a)
+
+The organizer can record in the browser instead of uploading a file. The browser sends small chunks (`RECORDING_CHUNK_SECONDS`, exposed via `GET /config`), and on "Selesai" a Celery worker merges them, converts **once** to m4a with ffmpeg, and hands the result to `recording_service.store_recording_result` — the same path manual upload uses (size/duration validation, replacement of the old recording, attendance lock, `queued` row, `process_recording_task`). Logic: `services/recording_session.py`; tasks: `tasks/recording_session.py`; table `recording_sessions` (`models/recording_session.py`).
+
+Endpoints under `/api/v1/meetings/:id/recording/sessions` (organizer only):
+- `POST` → 201 `{session_id, status}`
+- `PUT /:sid/chunks/:index` — **raw bytes body, not multipart**; resending an index overwrites it (idempotent) → `{chunk_count}`
+- `POST /:sid/finish` `{total_chunks}` → 202. 409 with `missing_indices` if chunks are missing; idempotent on `finalizing`/`finalized`; on `failed` it retries
+- `GET /:sid` → `{session_id, status, chunk_count, error_message}`
+
+Rules worth knowing:
+- Status is plain text: `recording` → `finalizing` → `finalized` | `failed` | `abandoned`. A partial unique index allows only **one** `recording`/`finalizing` session per meeting.
+- 409 bodies carry extra fields as **siblings of `detail`** (`{"detail": "...", "session_id": "...", "chunk_count": N}`) via `DetailedHTTPException` (`exceptions.py`), so `extractApiError()` still reads a string `detail`.
+- Chunks live at `recording-sessions/{session_id}/{index:06d}` and are merged byte-by-byte before conversion — only the first chunk carries the container header, so a chunk can never be converted alone. Accepted types: `audio/webm`, `audio/ogg`, `audio/mp4` only (`video/*` → 400).
+- ffmpeg exists **only in the worker image**, not `backend-api`. Tests therefore never run it: they use the `fake_storage` and `fake_converter` fixtures (`tests/conftest.py`, `tests/fixtures/tiny.m4a`). Real conversion was only verified manually against synthesized MediaRecorder-like files, not real browser captures.
+- A Celery beat task (`sweep_recording_sessions_task`, every `RECORDING_SWEEP_INTERVAL_MINUTES`) does three things: an idle `recording` session (no chunk for `RECORDING_SESSION_ABANDON_MINUTES`) is finalized from its contiguous chunks 0..N (chunks after a gap are dropped), or marked `abandoned` if none are usable; a session stuck in `finalizing` for `RECORDING_FINALIZE_STALE_MINUTES` has its finalize re-queued (there is no attempt cap, so a file that always kills the worker is retried forever); a `failed` session older than `RECORDING_FAILED_RETENTION_HOURS` loses its chunks and becomes `abandoned`.
+- Failure is never silent: `failed` + `error_message`, chunks kept for retry through `finish`. Finalize has no automatic retry.
+- Settings (all in `.env`, see `.env.example`): `RECORDING_CHUNK_SECONDS`, `RECORDING_CHUNK_MAX_SIZE_MB`, `RECORDING_CHUNK_COUNT_TOLERANCE_PERCENT`, `RECORDING_SESSION_ABANDON_MINUTES`, `RECORDING_FINALIZE_STALE_MINUTES`, `RECORDING_FAILED_RETENTION_HOURS`, `RECORDING_SWEEP_INTERVAL_MINUTES`, `RECORDING_OUTPUT_SAMPLE_RATE`, `RECORDING_OUTPUT_BITRATE_KBPS`. `GET /config` exposes `recording_chunk_seconds` and `max_audio_duration_hours`.
+- After changing anything under `tasks/` or `worker.py`, rebuild **both** `celery-worker` and `celery-beat`: `docker compose build celery-worker && docker compose up -d celery-worker celery-beat`.
+
 ### Backend Structure (`backend/app/`)
 
 - `main.py` — FastAPI app, router registration
@@ -283,6 +303,6 @@ Toggle the whole feature off via `GOOGLE_CALENDAR_SYNC_ENABLED=false` in `.env` 
 
 - Dev: MinIO (local S3-compatible, docker compose). The official `minio/minio` image was removed from Docker Hub (upstream community edition is archived), so compose uses a community build pinned by digest via `MINIO_IMAGE` (default `netvark/minio@sha256:…`). Keep a local copy with `docker save`; do not switch to `minio/minio` or an unpinned `:latest`.
 - Prod target: Cloudflare R2
-- Access via `services/storage.py` using boto3 S3 client
+- Access via `services/storage.py` using boto3 S3 client. Besides file helpers it has `put_bytes`, `get_bytes`, `list_objects(prefix)` and `delete_prefix(prefix)` for live-recording chunks; call them through the module (`storage.put_bytes`) so tests can monkeypatch them.
 
 Audio file limits (defaults; change in `.env` via `ALLOWED_AUDIO_FORMATS`, `MAX_UPLOAD_SIZE_MB`, `MAX_AUDIO_DURATION_HOURS`): mp3/mp4/wav/m4a, max 200MB, max 2 hours.
