@@ -10,6 +10,7 @@ from app.models.action_item import ActionItem
 from app.models.email_log import EmailLog
 from app.models.audit_log import AuditLog
 from app.models.notulen_version import NotulenVersion
+from app.models.recording_session import RecordingSession
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "EmailLog",
     "AuditLog",
     "NotulenVersion",
+    "RecordingSession",
 ]
