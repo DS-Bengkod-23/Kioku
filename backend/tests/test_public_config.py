@@ -13,6 +13,15 @@ def test_public_config_needs_no_auth_and_reflects_settings(client):
     assert 0 < body["max_upload_size_mb"] <= settings.MAX_UPLOAD_SIZE_MB
 
 
+def test_public_config_exposes_live_recording_limits(client):
+    # Frontend rekam langsung butuh panjang potongan (untuk MediaRecorder.start(timeslice))
+    # dan batas durasi (untuk menghentikan rekaman) tanpa menduplikasi angka dari .env.
+    body = client.get("/api/v1/config").json()
+
+    assert body["recording_chunk_seconds"] == settings.RECORDING_CHUNK_SECONDS
+    assert body["max_audio_duration_hours"] == settings.MAX_AUDIO_DURATION_HOURS
+
+
 def test_public_config_only_exposes_whitelisted_fields(client):
     # Endpoint ini tanpa auth: kalau ada yang menambah field baru ke response,
     # tes ini memaksa dia sadar dan memperbarui daftar ini dengan sengaja.
@@ -24,4 +33,6 @@ def test_public_config_only_exposes_whitelisted_fields(client):
         "avatar_max_size_mb",
         "recording_poll_interval_seconds",
         "recording_poll_max_minutes",
+        "recording_chunk_seconds",
+        "max_audio_duration_hours",
     }

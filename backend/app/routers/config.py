@@ -16,4 +16,6 @@ def get_public_config():
         avatar_max_size_mb=settings.AVATAR_MAX_SIZE_MB,
         recording_poll_interval_seconds=settings.RECORDING_POLL_INTERVAL_SECONDS,
         recording_poll_max_minutes=settings.RECORDING_POLL_MAX_MINUTES,
+        recording_chunk_seconds=settings.RECORDING_CHUNK_SECONDS,
+        max_audio_duration_hours=settings.MAX_AUDIO_DURATION_HOURS,
     )

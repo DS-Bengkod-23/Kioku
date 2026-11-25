@@ -217,3 +217,76 @@ def auth_headers():
         return {"Authorization": f"Bearer {token}"}
 
     return _headers
+
+
+class FakeStorage:
+    """Pengganti in-memory untuk app.services.storage (tanpa MinIO).
+
+    Diakses lewat atribut modul (`storage.put_bytes`, bukan `from ... import`) di kode
+    produksi, jadi cukup di-monkeypatch di sini."""
+
+    def __init__(self):
+        self.objects: dict[str, bytes] = {}
+        self.deleted_keys: list[str] = []
+
+    def put_bytes(self, object_key: str, data: bytes) -> None:
+        self.objects[object_key] = bytes(data)
+
+    def get_bytes(self, object_key: str) -> bytes:
+        if object_key not in self.objects:
+            raise FileNotFoundError(object_key)
+        return self.objects[object_key]
+
+    def list_objects(self, prefix: str) -> list[tuple[str, int]]:
+        return sorted((key, len(data)) for key, data in self.objects.items() if key.startswith(prefix))
+
+    def delete_prefix(self, prefix: str) -> None:
+        for key in [key for key in self.objects if key.startswith(prefix)]:
+            del self.objects[key]
+
+    def delete_file(self, object_key: str) -> None:
+        self.deleted_keys.append(object_key)
+        self.objects.pop(object_key, None)
+
+    def upload_file(self, file_bytes: bytes, filename: str, meeting_id: str) -> str:
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+        object_key = f"recordings/{meeting_id}/{uuid.uuid4()}.{ext}"
+        self.objects[object_key] = bytes(file_bytes)
+        return object_key
+
+
+@pytest.fixture
+def fake_storage(monkeypatch):
+    fake = FakeStorage()
+    for name in ("put_bytes", "get_bytes", "list_objects", "delete_prefix", "delete_file", "upload_file"):
+        monkeypatch.setattr(f"app.services.storage.{name}", getattr(fake, name))
+    return fake
+
+
+TINY_M4A = Path(__file__).resolve().parent / "fixtures" / "tiny.m4a"
+
+
+class FakeConverter:
+    """Pengganti app.services.audio_convert.convert_to_m4a: container backend-api tidak
+    punya ffmpeg. Menulis tiny.m4a (m4a asli ~1 detik) sebagai hasil konversi."""
+
+    def __init__(self):
+        self.calls: list[tuple[str, str]] = []
+        self.inputs: list[bytes | None] = []  # isi berkas input saat dipanggil
+        self.settings: list[tuple[int, int]] = []  # (sample_rate, bitrate_kbps)
+        self.error: Exception | None = None
+
+    def __call__(self, src_path: str, dst_path: str, *, sample_rate: int, bitrate_kbps: int) -> None:
+        self.calls.append((src_path, dst_path))
+        self.inputs.append(Path(src_path).read_bytes() if Path(src_path).exists() else None)
+        self.settings.append((sample_rate, bitrate_kbps))
+        if self.error is not None:
+            raise self.error
+        Path(dst_path).write_bytes(TINY_M4A.read_bytes())
+
+
+@pytest.fixture
+def fake_converter(monkeypatch):
+    fake = FakeConverter()
+    monkeypatch.setattr("app.services.audio_convert.convert_to_m4a", fake)
+    return fake

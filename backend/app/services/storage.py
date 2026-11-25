@@ -55,6 +55,47 @@ def get_file_stream(object_key: str):
     return response["Body"]
 
 
+def put_bytes(object_key: str, data: bytes) -> None:
+    """Simpan byte pada kunci yang ditentukan pemanggil (dipakai untuk potongan
+    rekaman sementara; upload_file membuat kunci acak sendiri)."""
+    client = get_minio_client()
+    client.put_object(
+        Bucket=settings.MINIO_BUCKET,
+        Key=object_key,
+        Body=data,
+        ContentLength=len(data),
+    )
+
+
+def get_bytes(object_key: str) -> bytes:
+    """Baca objek utuh ke memori. Hanya untuk objek kecil (satu potongan rekaman)."""
+    return get_file_stream(object_key).read()
+
+
+def list_objects(prefix: str) -> list[tuple[str, int]]:
+    """Daftar (kunci, ukuran byte) semua objek berawalan `prefix`, terurut menurut kunci.
+    Awalan sebaiknya diakhiri '/' agar `s1/` tidak ikut mengambil `s10/`."""
+    client = get_minio_client()
+    found: list[tuple[str, int]] = []
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=settings.MINIO_BUCKET, Prefix=prefix):
+        for item in page.get("Contents", []):
+            found.append((item["Key"], item["Size"]))
+    return sorted(found)
+
+
+def delete_prefix(prefix: str) -> None:
+    """Hapus semua objek berawalan `prefix` (batch maksimal 1000 kunci, batas S3).
+    Best-effort seperti delete_file: kegagalan dicatat di log, tidak dilempar."""
+    keys = [key for key, _ in list_objects(prefix)]
+    client = get_minio_client()
+    for start in range(0, len(keys), 1000):
+        batch = [{"Key": key} for key in keys[start : start + 1000]]
+        try:
+            client.delete_objects(Bucket=settings.MINIO_BUCKET, Delete={"Objects": batch, "Quiet": True})
+        except ClientError:
+            logger.warning("Gagal menghapus %d objek storage berawalan %s", len(batch), prefix, exc_info=True)
+
+
 def upload_avatar_file(file_bytes: bytes, filename: str, user_id: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
     object_key = f"avatars/{user_id}/{uuid.uuid4()}.{ext}"
