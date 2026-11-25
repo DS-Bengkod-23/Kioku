@@ -91,6 +91,10 @@ def _clear_previous_processing(db: Session, recording: Recording, meeting: Meeti
     db.query(Summary).filter(Summary.meeting_id == meeting.id).delete()
     db.query(Transcript).filter(Transcript.meeting_id == meeting.id).delete()
     db.delete(recording)
+    # Flush DELETE sekarang: unit-of-work SQLAlchemy menjalankan INSERT sebelum DELETE
+    # dalam satu flush, jadi Recording baru (unique meeting_id) akan bentrok dengan
+    # baris lama dan penggantian selalu berakhir 409 palsu.
+    db.flush()
     meeting.notulen_status = None
     meeting.notulen_edited_at = None
 
@@ -113,6 +117,20 @@ async def upload_recording(
         )
 
     file_bytes = await file.read()
+    return store_recording_result(db, meeting, file_bytes, file.filename, ext=ext)
+
+
+def store_recording_result(
+    db: Session, meeting: Meeting, file_bytes: bytes, filename: str | None, *, ext: str
+) -> Recording:
+    """Jalur penyimpanan hasil rekaman yang dipakai bersama upload manual dan rekam langsung.
+
+    Memvalidasi ukuran/provider/isi/durasi, menyimpan ke storage, mengganti hasil proses
+    lama, mengunci absensi, membuat baris Recording `queued`, menangani dua permintaan
+    serentak, lalu mengantre `process_recording`. Pemeriksaan organizer, ekstensi, dan
+    status pipeline awal tetap di pemanggil karena urutannya bagian dari kontrak upload.
+    """
+    meeting_id = meeting.id
     size = len(file_bytes)
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if size > max_bytes:
@@ -150,13 +168,16 @@ async def upload_recording(
                     f"maksimum {settings.MAX_AUDIO_DURATION_HOURS} jam.",
         )
 
-    object_key = storage.upload_file(file_bytes, file.filename or f"audio.{ext}", str(meeting_id))
+    object_key = storage.upload_file(file_bytes, filename or f"audio.{ext}", str(meeting_id))
 
     # Re-cek: upload ke storage di atas bisa makan waktu untuk file besar, jadi
     # status recording lama bisa saja berubah (mis. Celery baru mulai memproses)
     # sejak pengecekan di awal fungsi.
-    db.expire(existing) if existing else None
-    existing = db.query(Recording).filter(Recording.meeting_id == meeting_id).first()
+    # populate_existing: muat ulang dari DB walau objeknya sudah ada di sesi ini
+    # (upload manual sudah memuatnya di pemeriksaan awal).
+    existing = (
+        db.query(Recording).filter(Recording.meeting_id == meeting_id).populate_existing().first()
+    )
     try:
         _reject_if_pipeline_active(existing)
     except HTTPException:
