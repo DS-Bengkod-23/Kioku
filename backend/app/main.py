@@ -5,6 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import IntegrityError
 from app.config import settings
+from app.exceptions import DetailedHTTPException
 from app.rate_limit import limiter
 from app.routers import auth, meetings, checkin, recordings, action_items, calendar, admin, config, notulen
 
@@ -20,6 +21,11 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
         status_code=409,
         content={"detail": "Data bertentangan dengan data lain yang sudah ada. Coba muat ulang halaman."},
     )
+
+
+@app.exception_handler(DetailedHTTPException)
+async def detailed_http_exception_handler(request: Request, exc: DetailedHTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, **exc.extra})
 
 
 app.add_middleware(
