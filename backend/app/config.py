@@ -111,6 +111,18 @@ class Settings(BaseSettings):
     RECORDING_POLL_INTERVAL_SECONDS: int = 3
     RECORDING_POLL_MAX_MINUTES: int = 60
 
+    # Rekam langsung di browser (potongan audio -> digabung & dikonversi di worker)
+    RECORDING_CHUNK_SECONDS: int = 10  # dikirim ke frontend lewat GET /config
+    RECORDING_CHUNK_MAX_SIZE_MB: int = 5
+    # Toleransi jumlah potongan di atas MAX_AUDIO_DURATION_HOURS / RECORDING_CHUNK_SECONDS
+    RECORDING_CHUNK_COUNT_TOLERANCE_PERCENT: int = 10
+    RECORDING_SESSION_ABANDON_MINUTES: int = 10
+    RECORDING_FINALIZE_STALE_MINUTES: int = 30
+    RECORDING_FAILED_RETENTION_HOURS: int = 24
+    RECORDING_SWEEP_INTERVAL_MINUTES: int = 5
+    RECORDING_OUTPUT_SAMPLE_RATE: int = 16000
+    RECORDING_OUTPUT_BITRATE_KBPS: int = 48
+
     # App
     APP_ENV: str = "development"
     APP_BASE_URL: str = "http://localhost:3000"

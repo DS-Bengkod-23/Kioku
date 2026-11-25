@@ -11,3 +11,5 @@ class PublicConfigResponse(BaseModel):
     avatar_max_size_mb: int
     recording_poll_interval_seconds: int
     recording_poll_max_minutes: int
+    recording_chunk_seconds: int
+    max_audio_duration_hours: int
